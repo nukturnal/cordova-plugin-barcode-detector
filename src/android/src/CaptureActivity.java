@@ -45,7 +45,7 @@ import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.mlkit.vision.barcode.Barcode;
+import com.google.mlkit.vision.barcode.common.Barcode;
 import com.google.mlkit.vision.barcode.BarcodeScanner;
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions;
 import com.google.mlkit.vision.barcode.BarcodeScanning;
@@ -257,7 +257,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
   void startCamera() {
     mCameraView = findViewById(getResources().getIdentifier("previewView", "id", getPackageName()));
-    mCameraView.setPreferredImplementationMode(PreviewView.ImplementationMode.TEXTURE_VIEW);
+    mCameraView.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);
 
     Boolean rotateCamera = getIntent().getBooleanExtra("RotateCamera", false);
     if (rotateCamera) {
@@ -303,7 +303,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     CameraSelector cameraSelector = new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK)
         .build();
 
-    preview.setSurfaceProvider(mCameraView.createSurfaceProvider());
+    preview.setSurfaceProvider(mCameraView.getSurfaceProvider());
 
     ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).setTargetAspectRatio(AspectRatio.RATIO_16_9)
