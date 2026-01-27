@@ -14,8 +14,8 @@ gradle/
 local.properties
 gradlew*
 
-# Build directory
-www/
+# Build directory - tracked for Cordova plugin distribution
+# www/
 
 # Other files
 .eslintcache

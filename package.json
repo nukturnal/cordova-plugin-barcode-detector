@@ -1,9 +1,10 @@
 {
-  "name": "cordova-plugin-mlkit-barcode-scanner",
-  "version": "3.0.7",
-  "description": "Google MLKit Vision Barcode Scanner Plugin",
+  "name": "cordova-plugin-barcode-detector",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Google MLKit Barcode Scanner Plugin - Updated for modern iOS/Android compatibility",
   "cordova": {
-    "id": "cordova-plugin-mlkit-barcode-scanner",
+    "id": "cordova-plugin-barcode-detector",
     "platforms": [
       "android",
       "ios"
@@ -12,20 +13,26 @@
   "keywords": [
     "ecosystem:cordova",
     "cordova-ios",
-    "cordova-android"
+    "cordova-android",
+    "barcode",
+    "qrcode",
+    "scanner",
+    "mlkit"
   ],
-  "author": "Florian Biebel",
+  "author": "eGotickets (forked from MobisysGmbH)",
   "license": "MIT",
-  "main": "www/BarcodeScanner.contract.js",
-  "prettier": "@teckel.ts-internal/prettier-config",
+  "main": "www/BarcodeScanner.plugin.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nukturnal/cordova-plugin-barcode-detector.git"
+  },
+  "homepage": "https://github.com/nukturnal/cordova-plugin-barcode-detector#readme",
   "engines": {
-    "node": ">=10.0.0"
+    "node": ">=18.0.0"
   },
   "scripts": {
-    "build": "npm run lint && npm run clean && npm run transpile",
-    "clean": "mkdir -p 'www' && find 'www' ! -path 'www' -delete",
-    "lint": "eslint . --ext .js,.ts --cache && tsc -p tsconfig.lint.json",
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "npm run clean && npm run transpile",
+    "clean": "rm -rf www && mkdir -p www",
     "transpile": "rollup --config --silent",
     "prepublishOnly": "npm run build"
   },
@@ -34,25 +41,13 @@
     "/www/**/*.{js,js.map,d.ts}",
     "/plugin.xml"
   ],
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/MobisysGmbH/cordova-plugin-mlkit-barcode-scanner.git"
-  },
-  "homepage": "https://github.com/MobisysGmbH/cordova-plugin-mlkit-barcode-scanner#readme",
-  "publishConfig": {
-    "registry": "https://pkgs.dev.azure.com/mobisysgmbh/_packaging/mobisys/npm/registry/"
-  },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "20.0.0",
-    "@rollup/plugin-node-resolve": "13.0.4",
-    "@teckel.ts-internal/eslint-config": "3.0.0",
-    "@teckel.ts-internal/prettier-config": "1.0.0",
-    "@teckel.ts-internal/ts-config": "2.0.1",
-    "@types/cordova": "0.0.34",
-    "@types/node": "16.7.1",
-    "eslint": "7.32.0",
-    "rollup": "2.56.3",
-    "rollup-plugin-typescript2": "0.30.0",
-    "tslib": "2.3.1"
+    "@rollup/plugin-commonjs": "^25.0.0",
+    "@rollup/plugin-node-resolve": "^15.0.0",
+    "@rollup/plugin-typescript": "^11.0.0",
+    "@types/cordova": "^11.0.0",
+    "rollup": "^4.0.0",
+    "tslib": "^2.6.0",
+    "typescript": "^5.0.0"
   }
 }

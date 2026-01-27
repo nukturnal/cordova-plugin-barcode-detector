@@ -89,7 +89,7 @@ export class MLKitBarcodeScanner {
             break;
         }
       },
-      'cordova-plugin-mlkit-barcode-scanner',
+      'cordova-plugin-barcode-detector',
       'startScan',
       [config],
     );
