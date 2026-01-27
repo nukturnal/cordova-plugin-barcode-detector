@@ -23,6 +23,7 @@
 
 - (void)closeScanner;
 - (void)sendResult:(MLKBarcode *)result;
+- (void)sendContinuousResult:(MLKBarcode *)result;
 
 @end
 
@@ -31,6 +32,12 @@
 @property(nonatomic,assign)id delegate;
 @property(nonatomic,assign) NSNumber *barcodeFormats;
 @property(nonatomic,assign) CGFloat detectorSize;
+@property(nonatomic,assign) BOOL continuousMode;
+@property(nonatomic,copy) NSString *titleText;
+@property(nonatomic,copy) NSString *subtitleText;
+
+- (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration;
+- (void)updateStatsText:(NSString *)stats;
 
 @end
 

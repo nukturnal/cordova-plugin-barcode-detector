@@ -180,4 +180,194 @@
     });
 }
 
+#pragma mark - Continuous Mode Methods
+
+- (void)startContinuousScan:(CDVInvokedUrlCommand *)command
+{
+    _previousOrientation = [[UIApplication sharedApplication] statusBarOrientation];
+    
+    BOOL hasCamera = [UIImagePickerController isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera];
+    
+    if (hasCamera)
+    {
+        // Force portrait orientation.
+        [[UIDevice currentDevice] setValue:[NSNumber numberWithInteger:UIInterfaceOrientationPortrait] forKey:@"orientation"];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSLog(@"startContinuousScan Arguments %@", command.arguments);
+            if (self->_scannerOpen == YES)
+            {
+                // Scanner is currently open, throw error.
+                NSArray *response = @[@"SCANNER_OPEN", @"", @""];
+                CDVPluginResult *pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsArray:response];
+                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            }
+            else
+            {
+                // Open scanner in continuous mode.
+                self->_scannerOpen = YES;
+                self->_continuousMode = YES;
+                self.cameraViewController = [[CameraViewController alloc] init];
+                self.cameraViewController.delegate = self;
+                self.cameraViewController.continuousMode = YES;
+                
+                // Provide settings to the camera view.
+                NSDictionary* config = [command.arguments objectAtIndex:0];
+                self->_beepOnSuccess = [[config valueForKey:@"beepOnSuccess"] boolValue] ?: NO;
+                self->_vibrateOnSuccess = [[config valueForKey:@"vibrateOnSuccess"] boolValue] ?: NO;
+                NSNumber* barcodeFormats = [config valueForKey:@"barcodeFormats"] ?: @1234;
+                self.cameraViewController.barcodeFormats = barcodeFormats;
+                self.cameraViewController.detectorSize = (CGFloat)[[config valueForKey:@"detectorSize"] ?: @0.5 floatValue];
+                self.cameraViewController.modalPresentationStyle = UIModalPresentationFullScreen;
+                
+                // Set title and subtitle for continuous mode
+                NSString* title = [config valueForKey:@"title"];
+                NSString* subtitle = [config valueForKey:@"subtitle"];
+                if (title) {
+                    self.cameraViewController.titleText = title;
+                }
+                if (subtitle) {
+                    self.cameraViewController.subtitleText = subtitle;
+                }
+                
+                NSLog(@"Continuous scan - scanAreaSize: %f, barcodeFormats: %@", self.cameraViewController.detectorSize, self.cameraViewController.barcodeFormats);
+                
+                [self.viewController presentViewController:self.cameraViewController animated:NO completion:nil];
+                self->_callback = command.callbackId;
+            }
+        });
+    }
+    else
+    {
+        UIAlertController *alert = [UIAlertController alertControllerWithTitle:nil message:NSLocalizedString(@"The device has no camera.", @"Message to the user if the device has no camera.") preferredStyle:UIAlertControllerStyleAlert];
+        UIAlertAction *defaultAction = [UIAlertAction actionWithTitle:@"OK" style:UIAlertActionStyleDefault handler:nil];
+        [alert addAction:defaultAction];
+        [self.viewController presentViewController:alert animated:YES completion:nil];
+    }
+}
+
+- (void)sendContinuousResult:(MLKBarcode *)barcode
+{
+    // Don't dismiss - keep scanning in continuous mode
+    NSString* value = barcode.rawValue;
+    
+    // rawValue returns null if string is not UTF-8 encoded.
+    // If that's the case, we will decode it as ASCII.
+    if (barcode.rawValue == nil)
+    {
+        value = [[NSString alloc] initWithData:barcode.rawData encoding:NSASCIIStringEncoding];
+    }
+    
+    NSArray* response = @[value ?: @"", @(barcode.format), @(barcode.valueType)];
+    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsArray:response];
+    
+    // IMPORTANT: Keep callback for continuous results
+    [pluginResult setKeepCallbackAsBool:YES];
+    
+    [self playBeep];
+    
+    [self.commandDelegate sendPluginResult:pluginResult callbackId:_callback];
+}
+
+- (void)flashOverlay:(CDVInvokedUrlCommand *)command
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.cameraViewController == nil)
+        {
+            NSLog(@"flashOverlay: Scanner not open");
+            return;
+        }
+        
+        NSDictionary* config = [command.arguments objectAtIndex:0];
+        NSString* colorHex = [config valueForKey:@"color"] ?: @"#22c55e";
+        NSNumber* durationNum = [config valueForKey:@"duration"] ?: @300;
+        NSTimeInterval duration = [durationNum doubleValue] / 1000.0; // Convert ms to seconds
+        
+        // Parse hex color
+        UIColor* color = [self colorFromHexString:colorHex];
+        
+        [self.cameraViewController showFlashOverlayWithColor:color duration:duration];
+        
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    });
+}
+
+- (void)closeScanner:(CDVInvokedUrlCommand *)command
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.cameraViewController != nil)
+        {
+            [self.cameraViewController dismissViewControllerAnimated:NO completion:nil];
+        }
+        self->_scannerOpen = NO;
+        self->_continuousMode = NO;
+        
+        // Send close event on the continuous callback
+        NSArray *response = @[@"SCANNER_CLOSED", @"", @""];
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsArray:response];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:self->_callback];
+        
+        [self resetOrientation];
+        
+        // Send success on the command callback
+        CDVPluginResult* commandResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:commandResult callbackId:command.callbackId];
+    });
+}
+
+- (void)updateStats:(CDVInvokedUrlCommand *)command
+{
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.cameraViewController == nil)
+        {
+            NSLog(@"updateStats: Scanner not open");
+            CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString:@"Scanner not open"];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+            return;
+        }
+        
+        // Handle both formats: { stats: "..." } or just "..."
+        id firstArg = [command.arguments objectAtIndex:0];
+        NSString* stats;
+        if ([firstArg isKindOfClass:[NSDictionary class]]) {
+            stats = [firstArg valueForKey:@"stats"] ?: @"";
+        } else {
+            stats = firstArg ?: @"";
+        }
+        
+        [self.cameraViewController updateStatsText:stats];
+        
+        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+    });
+}
+
+#pragma mark - Helper Methods
+
+- (UIColor *)colorFromHexString:(NSString *)hexString
+{
+    // Remove # if present
+    if ([hexString hasPrefix:@"#"]) {
+        hexString = [hexString substringFromIndex:1];
+    }
+    
+    // Handle shorthand (3 chars) or full (6 chars)
+    if ([hexString length] == 3) {
+        NSString *r = [hexString substringWithRange:NSMakeRange(0, 1)];
+        NSString *g = [hexString substringWithRange:NSMakeRange(1, 1)];
+        NSString *b = [hexString substringWithRange:NSMakeRange(2, 1)];
+        hexString = [NSString stringWithFormat:@"%@%@%@%@%@%@", r, r, g, g, b, b];
+    }
+    
+    unsigned int hexValue = 0;
+    NSScanner *scanner = [NSScanner scannerWithString:hexString];
+    [scanner scanHexInt:&hexValue];
+    
+    CGFloat red = ((hexValue & 0xFF0000) >> 16) / 255.0;
+    CGFloat green = ((hexValue & 0x00FF00) >> 8) / 255.0;
+    CGFloat blue = (hexValue & 0x0000FF) / 255.0;
+    
+    return [UIColor colorWithRed:red green:green blue:blue alpha:1.0];
+}
+
 @end

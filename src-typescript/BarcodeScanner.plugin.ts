@@ -94,6 +94,82 @@ export class MLKitBarcodeScanner {
       [config],
     );
   }
+
+  /**
+   * Start continuous scanning mode
+   */
+  startContinuousScan(
+    userOptions: IOptions & { title?: string; subtitle?: string },
+    onScan: (result: IResult) => unknown,
+    onClose: (error: IError) => unknown,
+  ): void {
+    const barcodeFormats =
+      userOptions?.barcodeFormats || defaultOptions.barcodeFormats;
+    const config = {
+      ...defaultOptions,
+      ...userOptions,
+      barcodeFormats: this.getBarcodeFormatFlags(barcodeFormats),
+      title: userOptions?.title || '',
+      subtitle: userOptions?.subtitle || '',
+    };
+
+    cordova.exec(
+      (data: [string, number, number]) => {
+        const [text, format, type] = data;
+        onScan({
+          text,
+          format: this.getBarcodeFormat(format),
+          type: this.getBarcodeType(type),
+        });
+      },
+      (err: (string | null)[]) => {
+        switch (err[0]) {
+          case null:
+          case 'USER_CANCELLED':
+          case 'SCANNER_CLOSED':
+            onClose({
+              cancelled: true,
+              message: 'Scanner closed.',
+            });
+            break;
+          default:
+            onClose({
+              cancelled: false,
+              message: err[0] || 'Unknown Error',
+            });
+            break;
+        }
+      },
+      'cordova-plugin-barcode-detector',
+      'startContinuousScan',
+      [config],
+    );
+  }
+
+  /**
+   * Flash a color overlay on the scanner
+   */
+  flashOverlay(options: { color?: string; duration?: number } = {}): void {
+    const config = {
+      color: options.color || '#22c55e',
+      duration: options.duration || 300,
+    };
+    cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'flashOverlay', [config]);
+  }
+
+  /**
+   * Close the scanner
+   */
+  closeScanner(): void {
+    cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'closeScanner', []);
+  }
+
+  /**
+   * Update stats text displayed on scanner
+   */
+  updateStats(stats: string): void {
+    cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'updateStats', [{ stats }]);
+  }
 }
 
 const barcodeScanner = new MLKitBarcodeScanner();

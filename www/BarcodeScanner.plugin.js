@@ -116,6 +116,74 @@ class MLKitBarcodeScanner {
             }
         }, 'cordova-plugin-barcode-detector', 'startScan', [config]);
     }
+
+    /**
+     * Start continuous scanning mode
+     * @param {Object} userOptions - Scanner options including title, subtitle
+     * @param {Function} onScan - Called for each scan (scanner stays open)
+     * @param {Function} onClose - Called when scanner is closed
+     */
+    startContinuousScan(userOptions, onScan, onClose) {
+        const barcodeFormats = (userOptions === null || userOptions === void 0 ? void 0 : userOptions.barcodeFormats) || defaultOptions.barcodeFormats;
+        const config = Object.assign(Object.assign(Object.assign({}, defaultOptions), userOptions), { 
+            barcodeFormats: this.getBarcodeFormatFlags(barcodeFormats),
+            title: userOptions?.title || '',
+            subtitle: userOptions?.subtitle || '',
+        });
+
+        cordova.exec((data) => {
+            const [text, format, type] = data;
+            onScan({
+                text,
+                format: this.getBarcodeFormat(format),
+                type: this.getBarcodeType(type),
+            });
+        }, (err) => {
+            switch (err[0]) {
+                case null:
+                case 'USER_CANCELLED':
+                case 'SCANNER_CLOSED':
+                    onClose({
+                        cancelled: true,
+                        message: 'Scanner closed.',
+                    });
+                    break;
+                default:
+                    onClose({
+                        cancelled: false,
+                        message: err[0] || 'Unknown Error',
+                    });
+                    break;
+            }
+        }, 'cordova-plugin-barcode-detector', 'startContinuousScan', [config]);
+    }
+
+    /**
+     * Flash a color overlay on the scanner (for scan result feedback)
+     * @param {Object} options - { color: '#22c55e', duration: 300 }
+     */
+    flashOverlay(options = {}) {
+        const config = {
+            color: options.color || '#22c55e',
+            duration: options.duration || 300,
+        };
+        cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'flashOverlay', [config]);
+    }
+
+    /**
+     * Close the scanner (for continuous mode)
+     */
+    closeScanner() {
+        cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'closeScanner', []);
+    }
+
+    /**
+     * Update stats text displayed on scanner
+     * @param {string} stats - Stats text to display (e.g., "247 / 500 checked in")
+     */
+    updateStats(stats) {
+        cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'updateStats', [{ stats }]);
+    }
 }
 const barcodeScanner = new MLKitBarcodeScanner();
 module.exports = barcodeScanner;

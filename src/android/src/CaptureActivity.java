@@ -1,9 +1,15 @@
 package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
 
 import android.Manifest;
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+
 import android.annotation.SuppressLint;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -14,6 +20,8 @@ import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import android.os.Bundle;
 
+import android.util.Log;
+
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
@@ -21,6 +29,8 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.ImageButton;
+import android.widget.ImageView;
+import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AlertDialog;
@@ -82,6 +92,27 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   private ScaleGestureDetector _ScaleGestureDetector;
   private GestureDetector _GestureDetector;
 
+  // Continuous mode fields
+  private boolean _ContinuousMode = false;
+  private View _FlashOverlay;
+  private ImageButton _CloseButton;
+  private TextView _TitleText;
+  private TextView _SubtitleText;
+  private TextView _StatsText;
+  private ImageView _LogoView;
+  private String _LastScannedValue = "";
+  private long _LastScanTime = 0;
+  private static final long SCAN_DEBOUNCE_MS = 1500; // Prevent duplicate scans
+  private static final String TAG = "CaptureActivity";
+
+  // Broadcast actions for communication with plugin
+  public static final String ACTION_FLASH_OVERLAY = "com.mobisys.barcode.FLASH_OVERLAY";
+  public static final String ACTION_CLOSE_SCANNER = "com.mobisys.barcode.CLOSE_SCANNER";
+  public static final String ACTION_UPDATE_UI = "com.mobisys.barcode.UPDATE_UI";
+  public static final String ACTION_BARCODE_SCANNED = "com.mobisys.barcode.BARCODE_SCANNED";
+
+  private BroadcastReceiver _CommandReceiver;
+
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     super.onCreate(savedInstanceState);
@@ -98,10 +129,41 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     // read parameters from the intent used to launch the activity.
     BarcodeFormats = getIntent().getIntExtra("BarcodeFormats", 1234);
     DetectorSize = getIntent().getDoubleExtra("DetectorSize", .5);
+    _ContinuousMode = getIntent().getBooleanExtra("ContinuousMode", false);
 
     if (DetectorSize <= 0 || DetectorSize >= 1) { // setting boundary detectorSize must be between 0 to 1.
       DetectorSize = 0.5;
     }
+
+    // Initialize flash overlay
+    _FlashOverlay = findViewById(getResources().getIdentifier("flashOverlay", "id", getPackageName()));
+
+    // Initialize close button
+    _CloseButton = findViewById(getResources().getIdentifier("closeButton", "id", getPackageName()));
+    if (_CloseButton != null) {
+      _CloseButton.setOnClickListener(v -> closeScanner());
+    }
+
+    // Initialize title/subtitle/stats text views
+    _TitleText = findViewById(getResources().getIdentifier("titleText", "id", getPackageName()));
+    _SubtitleText = findViewById(getResources().getIdentifier("subtitleText", "id", getPackageName()));
+    _StatsText = findViewById(getResources().getIdentifier("statsText", "id", getPackageName()));
+    _LogoView = findViewById(getResources().getIdentifier("logoView", "id", getPackageName()));
+
+    // Set initial text from intent if provided
+    String title = getIntent().getStringExtra("Title");
+    String subtitle = getIntent().getStringExtra("Subtitle");
+    if (title != null && !title.isEmpty() && _TitleText != null) {
+      _TitleText.setText(title);
+      _TitleText.setVisibility(View.VISIBLE);
+    }
+    if (subtitle != null && !subtitle.isEmpty() && _SubtitleText != null) {
+      _SubtitleText.setText(subtitle);
+      _SubtitleText.setVisibility(View.VISIBLE);
+    }
+
+    // Register broadcast receiver for commands from plugin
+    registerCommandReceiver();
 
     int rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
 
@@ -350,34 +412,25 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
               @Override
               public void onSuccess(List<Barcode> barCodes) {
 
-                // # Code to test image viewfinder
-                /*
-                 * ImageView imageView = (ImageView)
-                 * findViewById(getResources().getIdentifier("imageView", "id",
-                 * getPackageName())); imageView.setImageBitmap(bitmap);
-                 */
-
                 if (barCodes.size() > 0) {
                   for (Barcode barcode : barCodes) {
-                    // Toast.makeText(CaptureActivity.this, "FOUND: " + barcode.getDisplayValue(),
-                    // Toast.LENGTH_SHORT).show();
-                    Intent data = new Intent();
                     String value = barcode.getRawValue();
 
                     // rawValue returns null if string is not UTF-8 encoded.
                     // If that's the case, we will decode it as ASCII,
                     // because it's the most common encoding for barcodes.
-                    // e.g. https://www.barcodefaq.com/1d/code-128/
                     if (barcode.getRawValue() == null) {
                       value = new String(barcode.getRawBytes(), StandardCharsets.US_ASCII);
                     }
 
-                    data.putExtra(BarcodeFormat, barcode.getFormat());
-                    data.putExtra(BarcodeType, barcode.getValueType());
-                    data.putExtra(BarcodeValue, value);
-                    setResult(CommonStatusCodes.SUCCESS, data);
-                    finish();
+                    // Debounce duplicate scans
+                    if (!shouldProcessBarcode(value)) {
+                      return;
+                    }
 
+                    // Send the result
+                    sendBarcodeResult(barcode, value);
+                    break;
                   }
                 }
               }
@@ -397,6 +450,142 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     });
 
     camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageAnalysis, preview);
+  }
+
+  /**
+   * Close the scanner and return to the calling activity
+   */
+  private void closeScanner() {
+    unregisterCommandReceiver();
+    Intent data = new Intent();
+    data.putExtra("err", "USER_CANCELLED");
+    setResult(CommonStatusCodes.CANCELED, data);
+    finish();
+  }
+
+  /**
+   * Register broadcast receiver for commands from plugin
+   */
+  private void registerCommandReceiver() {
+    _CommandReceiver = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent) {
+        String action = intent.getAction();
+        if (action == null) return;
+
+        switch (action) {
+          case ACTION_FLASH_OVERLAY:
+            int color = intent.getIntExtra("color", Color.GREEN);
+            int duration = intent.getIntExtra("duration", 300);
+            showFlashOverlay(color, duration);
+            break;
+          case ACTION_CLOSE_SCANNER:
+            closeScanner();
+            break;
+          case ACTION_UPDATE_UI:
+            String stats = intent.getStringExtra("stats");
+            if (stats != null && _StatsText != null) {
+              runOnUiThread(() -> {
+                _StatsText.setText(stats);
+                _StatsText.setVisibility(View.VISIBLE);
+              });
+            }
+            break;
+        }
+      }
+    };
+
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(ACTION_FLASH_OVERLAY);
+    filter.addAction(ACTION_CLOSE_SCANNER);
+    filter.addAction(ACTION_UPDATE_UI);
+
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+      registerReceiver(_CommandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+    } else {
+      registerReceiver(_CommandReceiver, filter);
+    }
+  }
+
+  /**
+   * Unregister broadcast receiver
+   */
+  private void unregisterCommandReceiver() {
+    if (_CommandReceiver != null) {
+      try {
+        unregisterReceiver(_CommandReceiver);
+      } catch (IllegalArgumentException e) {
+        // Receiver was not registered
+      }
+      _CommandReceiver = null;
+    }
+  }
+
+  /**
+   * Show flash overlay with color animation
+   */
+  private void showFlashOverlay(int color, int duration) {
+    if (_FlashOverlay == null) return;
+
+    runOnUiThread(() -> {
+      _FlashOverlay.setBackgroundColor(color);
+      _FlashOverlay.setAlpha(0.4f);
+      _FlashOverlay.setVisibility(View.VISIBLE);
+
+      _FlashOverlay.animate()
+          .alpha(0f)
+          .setDuration(duration)
+          .setListener(new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+              _FlashOverlay.setVisibility(View.GONE);
+            }
+          })
+          .start();
+    });
+  }
+
+  /**
+   * Check if we should process this barcode (debouncing)
+   */
+  private boolean shouldProcessBarcode(String value) {
+    long now = System.currentTimeMillis();
+    if (value.equals(_LastScannedValue) && (now - _LastScanTime) < SCAN_DEBOUNCE_MS) {
+      return false;
+    }
+    _LastScannedValue = value;
+    _LastScanTime = now;
+    return true;
+  }
+
+  /**
+   * Send barcode result - either finish activity or broadcast for continuous mode
+   */
+  private void sendBarcodeResult(Barcode barcode, String value) {
+    Intent data = new Intent();
+    data.putExtra(BarcodeFormat, barcode.getFormat());
+    data.putExtra(BarcodeType, barcode.getValueType());
+    data.putExtra(BarcodeValue, value);
+
+    if (_ContinuousMode) {
+      // Broadcast the result instead of finishing
+      Intent broadcastIntent = new Intent(ACTION_BARCODE_SCANNED);
+      broadcastIntent.putExtra(BarcodeFormat, barcode.getFormat());
+      broadcastIntent.putExtra(BarcodeType, barcode.getValueType());
+      broadcastIntent.putExtra(BarcodeValue, value);
+      sendBroadcast(broadcastIntent);
+      Log.d(TAG, "Continuous mode: broadcast barcode " + value);
+    } else {
+      // Single scan mode - finish activity
+      setResult(CommonStatusCodes.SUCCESS, data);
+      finish();
+    }
+  }
+
+  @Override
+  protected void onDestroy() {
+    super.onDestroy();
+    unregisterCommandReceiver();
   }
 
   /**

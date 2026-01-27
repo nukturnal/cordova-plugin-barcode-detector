@@ -128,6 +128,160 @@ result: {
 }
 ```
 
+---
+
+## Continuous Scanning Mode
+
+The plugin supports a continuous scanning mode where the scanner stays open and calls a callback for each barcode detected. This is ideal for check-in scenarios, inventory management, or any use case where you need to scan multiple barcodes in succession.
+
+### Starting Continuous Scan
+
+```javascript
+cordova.plugins.mlkit.barcodeScanner.startContinuousScan(
+  options,
+  (result) => {
+    // Called for each successful scan
+    console.log('Scanned:', result.text);
+    
+    // Process the barcode (e.g., validate ticket, update inventory)
+    validateBarcode(result.text).then(status => {
+      // Flash feedback based on result
+      if (status === 'success') {
+        cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#22c55e' });
+      } else if (status === 'warning') {
+        cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#f59e0b' });
+      } else {
+        cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#ef4444' });
+      }
+      
+      // Update stats display
+      cordova.plugins.mlkit.barcodeScanner.updateStats('247 / 500 checked in');
+    });
+  },
+  (closeResult) => {
+    // Called when scanner is closed (user pressed close button or programmatically closed)
+    if (closeResult.cancelled) {
+      console.log('Scanner closed by user');
+    }
+  }
+);
+```
+
+### Continuous Scan Options
+
+All standard scan options are supported, plus additional options for continuous mode:
+
+```javascript
+const continuousOptions = {
+  // Standard options
+  barcodeFormats: {
+    QRCode: true,
+    Code128: true,
+    // ... other formats
+  },
+  beepOnSuccess: true,
+  vibrateOnSuccess: true,
+  detectorSize: 0.6,
+  
+  // Continuous mode specific options
+  title: 'Event Check-in',      // Title displayed on scanner screen
+  subtitle: '0 / 500 checked in' // Subtitle displayed below title
+};
+```
+
+### Flash Overlay
+
+Show a color flash overlay on the scanner screen to provide visual feedback for scan results:
+
+```javascript
+cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+  color: '#22c55e',  // Hex color (green for success)
+  duration: 300      // Duration in milliseconds (default: 300)
+});
+```
+
+**Recommended Colors:**
+- Success (green): `#22c55e`
+- Warning (yellow): `#f59e0b`
+- Error (red): `#ef4444`
+
+### Update Stats
+
+Update the stats text displayed on the scanner screen (shown below the viewfinder):
+
+```javascript
+cordova.plugins.mlkit.barcodeScanner.updateStats('247 / 500 checked in');
+```
+
+### Close Scanner Programmatically
+
+Close the continuous scanner from your code:
+
+```javascript
+cordova.plugins.mlkit.barcodeScanner.closeScanner();
+```
+
+### Debouncing
+
+The continuous scanner automatically debounces duplicate scans of the same barcode within 1.5 seconds. This prevents accidental double-scans when the barcode remains in view.
+
+### Complete Example
+
+```javascript
+// Check-in workflow example
+let checkedInCount = 0;
+const totalTickets = 500;
+
+function startCheckIn() {
+  cordova.plugins.mlkit.barcodeScanner.startContinuousScan(
+    {
+      title: 'Concert Check-in',
+      subtitle: `${checkedInCount} / ${totalTickets} checked in`,
+      barcodeFormats: { QRCode: true },
+      beepOnSuccess: true,
+      vibrateOnSuccess: true,
+      detectorSize: 0.6
+    },
+    async (result) => {
+      try {
+        const response = await fetch('/api/checkin', {
+          method: 'POST',
+          body: JSON.stringify({ code: result.text })
+        });
+        const data = await response.json();
+        
+        if (data.status === 'success') {
+          checkedInCount++;
+          cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#22c55e' });
+        } else if (data.status === 'already_checked_in') {
+          cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#f59e0b' });
+        } else {
+          cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#ef4444' });
+        }
+        
+        // Update the count on screen
+        cordova.plugins.mlkit.barcodeScanner.updateStats(
+          `${checkedInCount} / ${totalTickets} checked in`
+        );
+      } catch (error) {
+        cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#ef4444' });
+      }
+    },
+    () => {
+      console.log('Check-in session ended');
+      console.log(`Total checked in: ${checkedInCount}`);
+    }
+  );
+}
+
+// To end the session programmatically:
+function endCheckIn() {
+  cordova.plugins.mlkit.barcodeScanner.closeScanner();
+}
+```
+
+---
+
 ## Known Issues
 
 On some devices the camera may be upside down.

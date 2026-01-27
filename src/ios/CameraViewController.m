@@ -34,7 +34,17 @@
 @property(nonatomic, strong) MLKBarcodeScanner *barcodeDetector;
 @property(nonatomic, strong) UIButton *torchButton;
 
+// New properties for continuous mode
+@property(nonatomic, strong) UIView *flashOverlayView;
+@property(nonatomic, strong) UILabel *titleLabel;
+@property(nonatomic, strong) UILabel *subtitleLabel;
+@property(nonatomic, strong) UILabel *statsLabel;
+@property(nonatomic, copy) NSString *lastScannedValue;
+@property(nonatomic, assign) NSTimeInterval lastScanTime;
+
 @end
+
+static const NSTimeInterval kScanDebounceSeconds = 1.5;
 
 @implementation CameraViewController
 @synthesize delegate;
@@ -210,9 +220,30 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         } else if (barcodes != nil) {
             for (MLKBarcode *barcode in barcodes) {
                 NSLog(@"Barcode value: %@", barcode.rawValue);
-                [self cleanupCaptureSession];
-                [self->_session stopRunning];
-                [self->delegate sendResult:barcode];
+                
+                if (self.continuousMode) {
+                    // Continuous mode: debounce and keep scanning
+                    NSTimeInterval currentTime = [[NSDate date] timeIntervalSince1970];
+                    NSString *barcodeValue = barcode.rawValue ?: @"";
+                    
+                    // Check if this is the same barcode within debounce period
+                    BOOL isDuplicate = [barcodeValue isEqualToString:self.lastScannedValue] &&
+                                       (currentTime - self.lastScanTime) < kScanDebounceSeconds;
+                    
+                    if (!isDuplicate) {
+                        // Update last scan info
+                        self.lastScannedValue = barcodeValue;
+                        self.lastScanTime = currentTime;
+                        
+                        // Send result via delegate (don't stop camera)
+                        [self->delegate sendContinuousResult:barcode];
+                    }
+                } else {
+                    // Single scan mode: stop and return result
+                    [self cleanupCaptureSession];
+                    [self->_session stopRunning];
+                    [self->delegate sendResult:barcode];
+                }
                 break;
             }
         }
@@ -342,6 +373,53 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 
     [self.view addSubview:catView];
 
+    // Set up flash overlay view (for continuous mode feedback)
+    self.flashOverlayView = [[UIView alloc] initWithFrame:self.view.bounds];
+    self.flashOverlayView.backgroundColor = [UIColor greenColor];
+    self.flashOverlayView.alpha = 0.0;
+    self.flashOverlayView.hidden = YES;
+    self.flashOverlayView.userInteractionEnabled = NO;
+    [self.view addSubview:self.flashOverlayView];
+
+    // Set up title label (top area, for continuous mode)
+    if (self.titleText && self.titleText.length > 0) {
+        CGFloat topPadding = 60.0; // Account for notch/status bar area
+        
+        self.titleLabel = [[UILabel alloc] init];
+        self.titleLabel.frame = CGRectMake(20, topPadding, screenWidth - 40, 28);
+        self.titleLabel.text = self.titleText;
+        self.titleLabel.textColor = [UIColor whiteColor];
+        self.titleLabel.font = [UIFont boldSystemFontOfSize:20];
+        self.titleLabel.textAlignment = NSTextAlignmentCenter;
+        self.titleLabel.transform = CGAffineTransformMakeRotation(M_PI / 2);
+        [self.view addSubview:self.titleLabel];
+        
+        // Subtitle label
+        if (self.subtitleText && self.subtitleText.length > 0) {
+            self.subtitleLabel = [[UILabel alloc] init];
+            self.subtitleLabel.frame = CGRectMake(20, topPadding + 32, screenWidth - 40, 20);
+            self.subtitleLabel.text = self.subtitleText;
+            self.subtitleLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.7];
+            self.subtitleLabel.font = [UIFont systemFontOfSize:14];
+            self.subtitleLabel.textAlignment = NSTextAlignmentCenter;
+            self.subtitleLabel.transform = CGAffineTransformMakeRotation(M_PI / 2);
+            [self.view addSubview:self.subtitleLabel];
+        }
+    }
+    
+    // Set up stats label (below viewfinder, for continuous mode)
+    if (self.continuousMode) {
+        self.statsLabel = [[UILabel alloc] init];
+        CGFloat statsY = screenHeight/2 + frameHeight/2 + 20;
+        self.statsLabel.frame = CGRectMake(20, statsY, screenWidth - 40, 24);
+        self.statsLabel.text = @"";
+        self.statsLabel.textColor = [UIColor whiteColor];
+        self.statsLabel.font = [UIFont systemFontOfSize:16];
+        self.statsLabel.textAlignment = NSTextAlignmentCenter;
+        self.statsLabel.transform = CGAffineTransformMakeRotation(M_PI / 2);
+        [self.view addSubview:self.statsLabel];
+    }
+
 }
 
 #pragma mark - Helper Functions
@@ -456,6 +534,34 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
     [ self cleanupCaptureSession];
     [_session stopRunning];
     [delegate closeScanner];
+}
+
+#pragma mark - Continuous Mode Methods
+
+- (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.flashOverlayView == nil) {
+            return;
+        }
+        
+        self.flashOverlayView.backgroundColor = color;
+        self.flashOverlayView.alpha = 0.5;
+        self.flashOverlayView.hidden = NO;
+        
+        [UIView animateWithDuration:duration animations:^{
+            self.flashOverlayView.alpha = 0.0;
+        } completion:^(BOOL finished) {
+            self.flashOverlayView.hidden = YES;
+        }];
+    });
+}
+
+- (void)updateStatsText:(NSString *)stats {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.statsLabel != nil) {
+            self.statsLabel.text = stats;
+        }
+    });
 }
 
 

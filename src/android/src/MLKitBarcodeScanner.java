@@ -2,11 +2,14 @@ package com.mobisys.cordova.plugins.mlkit.barcode.scanner;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
+import android.graphics.Color;
 import android.hardware.camera2.CameraManager;
 import android.media.MediaPlayer;
 import android.os.Build;
@@ -34,11 +37,15 @@ import java.io.IOException;
 public class MLKitBarcodeScanner extends CordovaPlugin {
 
   private static final int RC_BARCODE_CAPTURE = 9001;
+  private static final String TAG = "MLKitBarcodeScanner";
   private CallbackContext _CallbackContext;
+  private CallbackContext _ContinuousCallbackContext;
   private Boolean _BeepOnSuccess;
   private Boolean _VibrateOnSuccess;
+  private Boolean _ContinuousMode = false;
   private MediaPlayer _MediaPlayer;
   private Vibrator _Vibrator;
+  private BroadcastReceiver _BarcodeReceiver;
 
   public void initialize(CordovaInterface cordova, CordovaWebView webView) {
     super.initialize(cordova, webView);
@@ -111,6 +118,40 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
       Thread t = new Thread(new OneShotTask(cordova.getContext(), args));
       t.start();
       return true;
+    } else if (action.equals("startContinuousScan")) {
+      _ContinuousMode = true;
+      _ContinuousCallbackContext = callbackContext;
+      class ContinuousScanTask implements Runnable {
+        private final Context context;
+        private final JSONArray args;
+
+        private ContinuousScanTask(Context ctx, JSONArray as) {
+          context = ctx;
+          args = as;
+        }
+
+        public void run() {
+          try {
+            openContinuousScan(context, args);
+          } catch (JSONException e) {
+            _ContinuousCallbackContext.sendPluginResult(new PluginResult(PluginResult.Status.ERROR, e.toString()));
+          }
+        }
+      }
+      Thread t = new Thread(new ContinuousScanTask(cordova.getContext(), args));
+      t.start();
+      return true;
+    } else if (action.equals("flashOverlay")) {
+      flashOverlay(args);
+      return true;
+    } else if (action.equals("closeScanner")) {
+      closeScanner();
+      callbackContext.success();
+      return true;
+    } else if (action.equals("updateStats")) {
+      updateStats(args);
+      callbackContext.success();
+      return true;
     }
     return false;
   }
@@ -129,11 +170,149 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     this.cordova.startActivityForResult(this, intent, RC_BARCODE_CAPTURE);
   }
 
+  private void openContinuousScan(Context context, JSONArray args) throws JSONException {
+    JSONObject config = args.getJSONObject(0);
+    Intent intent = new Intent(context, CaptureActivity.class);
+    intent.putExtra("BarcodeFormats", config.optInt("barcodeFormats", 1234));
+    intent.putExtra("DetectorSize", config.optDouble("detectorSize", 0.5));
+    intent.putExtra("RotateCamera", config.optBoolean("rotateCamera", false));
+    intent.putExtra("ContinuousMode", true);
+    intent.putExtra("Title", config.optString("title", ""));
+    intent.putExtra("Subtitle", config.optString("subtitle", ""));
+
+    _BeepOnSuccess = config.optBoolean("beepOnSuccess", false);
+    _VibrateOnSuccess = config.optBoolean("vibrateOnSuccess", false);
+
+    // Register broadcast receiver for continuous scan results
+    registerBarcodeReceiver();
+
+    this.cordova.setActivityResultCallback(this);
+    this.cordova.startActivityForResult(this, intent, RC_BARCODE_CAPTURE);
+  }
+
+  private void registerBarcodeReceiver() {
+    if (_BarcodeReceiver != null) {
+      return; // Already registered
+    }
+
+    _BarcodeReceiver = new BroadcastReceiver() {
+      @Override
+      public void onReceive(Context context, Intent intent) {
+        if (CaptureActivity.ACTION_BARCODE_SCANNED.equals(intent.getAction())) {
+          Integer barcodeFormat = intent.getIntExtra(CaptureActivity.BarcodeFormat, 0);
+          Integer barcodeType = intent.getIntExtra(CaptureActivity.BarcodeType, 0);
+          String barcodeValue = intent.getStringExtra(CaptureActivity.BarcodeValue);
+
+          Log.d(TAG, "Received barcode broadcast: " + barcodeValue);
+
+          JSONArray result = new JSONArray();
+          result.put(barcodeValue);
+          result.put(barcodeFormat);
+          result.put(barcodeType);
+
+          // Send result but keep callback alive for continuous mode
+          PluginResult pluginResult = new PluginResult(PluginResult.Status.OK, result);
+          pluginResult.setKeepCallback(true);
+          if (_ContinuousCallbackContext != null) {
+            _ContinuousCallbackContext.sendPluginResult(pluginResult);
+          }
+
+          // Play feedback
+          if (_BeepOnSuccess) {
+            _MediaPlayer.start();
+          }
+          if (_VibrateOnSuccess) {
+            Integer duration = 200;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+              _Vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE));
+            } else {
+              _Vibrator.vibrate(duration);
+            }
+          }
+        }
+      }
+    };
+
+    IntentFilter filter = new IntentFilter(CaptureActivity.ACTION_BARCODE_SCANNED);
+    Context context = cordova.getContext();
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+      context.registerReceiver(_BarcodeReceiver, filter, Context.RECEIVER_EXPORTED);
+    } else {
+      context.registerReceiver(_BarcodeReceiver, filter);
+    }
+  }
+
+  private void unregisterBarcodeReceiver() {
+    if (_BarcodeReceiver != null) {
+      try {
+        cordova.getContext().unregisterReceiver(_BarcodeReceiver);
+      } catch (IllegalArgumentException e) {
+        // Not registered
+      }
+      _BarcodeReceiver = null;
+    }
+  }
+
+  private void flashOverlay(JSONArray args) throws JSONException {
+    JSONObject config = args.getJSONObject(0);
+    String colorStr = config.optString("color", "#22c55e");
+    int duration = config.optInt("duration", 300);
+
+    int color;
+    try {
+      color = Color.parseColor(colorStr);
+    } catch (IllegalArgumentException e) {
+      color = Color.GREEN;
+    }
+
+    Intent intent = new Intent(CaptureActivity.ACTION_FLASH_OVERLAY);
+    intent.putExtra("color", color);
+    intent.putExtra("duration", duration);
+    cordova.getContext().sendBroadcast(intent);
+  }
+
+  private void closeScanner() {
+    Intent intent = new Intent(CaptureActivity.ACTION_CLOSE_SCANNER);
+    cordova.getContext().sendBroadcast(intent);
+    unregisterBarcodeReceiver();
+    _ContinuousMode = false;
+  }
+
+  private void updateStats(JSONArray args) throws JSONException {
+    JSONObject config = args.getJSONObject(0);
+    String stats = config.optString("stats", "");
+
+    Intent intent = new Intent(CaptureActivity.ACTION_UPDATE_UI);
+    intent.putExtra("stats", stats);
+    cordova.getContext().sendBroadcast(intent);
+  }
+
   @Override
   public void onActivityResult(int requestCode, int resultCode, Intent data) {
     super.onActivityResult(requestCode, resultCode, data);
 
     if (requestCode == RC_BARCODE_CAPTURE) {
+      // Cleanup continuous mode receiver
+      unregisterBarcodeReceiver();
+
+      if (_ContinuousMode) {
+        // Continuous mode ended - send final callback
+        _ContinuousMode = false;
+        if (resultCode == CommonStatusCodes.CANCELED || resultCode != CommonStatusCodes.SUCCESS) {
+          JSONArray result = new JSONArray();
+          result.put("SCANNER_CLOSED");
+          result.put("");
+          result.put("");
+          PluginResult pluginResult = new PluginResult(PluginResult.Status.ERROR, result);
+          pluginResult.setKeepCallback(false);
+          if (_ContinuousCallbackContext != null) {
+            _ContinuousCallbackContext.sendPluginResult(pluginResult);
+          }
+        }
+        return;
+      }
+
+      // Single scan mode
       if (resultCode == CommonStatusCodes.SUCCESS) {
         if (data != null) {
           Integer barcodeFormat = data.getIntExtra(CaptureActivity.BarcodeFormat, 0);
