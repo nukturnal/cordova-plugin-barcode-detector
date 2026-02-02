@@ -134,6 +134,35 @@ result: {
 
 The plugin supports a continuous scanning mode where the scanner stays open and calls a callback for each barcode detected. This is ideal for check-in scenarios, inventory management, or any use case where you need to scan multiple barcodes in succession.
 
+### Premium UI Design
+
+The scanner features a **minimalist, premium design** with:
+
+✨ **Clean Text Overlay**
+- **Top-right corner positioning** with right-alignment
+- **3-line layout:** Title → Subtitle → Stats
+- **Typography hierarchy:** Bold title, lighter subtitle, monospaced stats
+- **Subtle opacity variations:** 100% → 70% → 65% for visual depth
+
+🎨 **Smooth Flash Feedback**
+- **Customizable color overlays** for different scan results
+- **Adjustable duration** (default 500ms, customizable up to any duration)
+- **Configurable opacity** (default 40%, customizable 0-100%)
+- **Smooth animations** with easeOut curves for natural feel
+
+**Visual Layout:**
+```
+┌─────────────────────────────────────┐
+│                  Continuous Mode   ← Line 1: Title
+│                   Scan tickets     ← Line 2: Subtitle
+│               248 / 500 checked in ← Line 3: Stats
+│                                     │
+│            [Scan Area]              │
+│                                     │
+│   (color flash overlay on scan)    │
+└─────────────────────────────────────┘
+```
+
 ### Starting Continuous Scan
 
 ```javascript
@@ -191,26 +220,109 @@ const continuousOptions = {
 
 ### Flash Overlay
 
-Show a color flash overlay on the scanner screen to provide visual feedback for scan results:
+Show a color flash overlay on the scanner screen to provide visual feedback for scan results. The flash overlay now supports customizable duration and opacity for a premium feel.
 
 ```javascript
 cordova.plugins.mlkit.barcodeScanner.flashOverlay({
   color: '#22c55e',  // Hex color (green for success)
-  duration: 300      // Duration in milliseconds (default: 300)
+  duration: 500,     // Duration in milliseconds (default: 500ms)
+  opacity: 0.4       // Opacity 0.0-1.0 (default: 0.4, i.e., 40%)
+});
+```
+
+**Flash Overlay Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `color` | string | `#22c55e` | Hex color code for the overlay |
+| `duration` | number | `500` | How long the flash stays visible (milliseconds) |
+| `opacity` | number | `0.4` | Transparency level: 0.0 (invisible) to 1.0 (solid) |
+
+**Recommended Configurations:**
+
+```javascript
+// Success - Subtle green flash
+cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+  color: '#22c55e',
+  duration: 600,
+  opacity: 0.35
+});
+
+// Warning - Medium yellow flash (already checked in)
+cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+  color: '#f59e0b',
+  duration: 600,
+  opacity: 0.4
+});
+
+// Error - Clear red flash (invalid ticket)
+cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+  color: '#ef4444',
+  duration: 600,
+  opacity: 0.4
+});
+
+// Custom - Purple flash with high opacity
+cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+  color: '#a855f7',
+  duration: 800,
+  opacity: 0.5
 });
 ```
 
 **Recommended Colors:**
-- Success (green): `#22c55e`
-- Warning (yellow): `#f59e0b`
-- Error (red): `#ef4444`
+- Success (green): `#22c55e` - Use for successful operations
+- Warning (yellow/amber): `#f59e0b` - Use for warnings or duplicates
+- Error (red): `#ef4444` - Use for errors or invalid scans
+- Info (blue): `#3b82f6` - Use for informational feedback
 
 ### Update Stats
 
-Update the stats text displayed on the scanner screen (shown below the viewfinder):
+Update the stats text displayed on the scanner screen. The text overlay has been redesigned with a premium, minimalist aesthetic:
+
+**Text Overlay Design:**
+- **Position:** Top-right corner, right-aligned
+- **Layout:** Supports up to 3 lines of text
+  - Line 1: Title (17pt, Semibold, White)
+  - Line 2: Subtitle (14pt, Regular, 70% opacity)
+  - Line 3: Stats (13pt, Monospaced, 65% opacity)
+- **Style:** Clean typography with subtle opacity hierarchy
 
 ```javascript
+// Update stats (appears as third line below title/subtitle)
 cordova.plugins.mlkit.barcodeScanner.updateStats('247 / 500 checked in');
+```
+
+**Text Overlay Configuration:**
+
+The title and subtitle are set when starting continuous scan:
+
+```javascript
+cordova.plugins.mlkit.barcodeScanner.startContinuousScan(
+  {
+    title: 'Event Check-in',        // Line 1: Bold title
+    subtitle: 'Scan tickets',       // Line 2: Lighter subtitle
+    // Stats updated dynamically via updateStats()
+    barcodeFormats: { QRCode: true },
+    beepOnSuccess: true,
+    vibrateOnSuccess: true
+  },
+  (result) => {
+    // Handle scan...
+  }
+);
+```
+
+**Visual Example:**
+
+```
+┌─────────────────────────────────┐
+│              Event Check-in   ← Title
+│               Scan tickets    ← Subtitle
+│          247 / 500 checked in ← Stats (updated via updateStats)
+│                                 │
+│         [Scan Area]             │
+└─────────────────────────────────┘
 ```
 
 ### Close Scanner Programmatically
@@ -228,7 +340,7 @@ The continuous scanner automatically debounces duplicate scans of the same barco
 ### Complete Example
 
 ```javascript
-// Check-in workflow example
+// Check-in workflow example with premium UI feedback
 let checkedInCount = 0;
 const totalTickets = 500;
 
@@ -236,7 +348,7 @@ function startCheckIn() {
   cordova.plugins.mlkit.barcodeScanner.startContinuousScan(
     {
       title: 'Concert Check-in',
-      subtitle: `${checkedInCount} / ${totalTickets} checked in`,
+      subtitle: 'Scan tickets',
       barcodeFormats: { QRCode: true },
       beepOnSuccess: true,
       vibrateOnSuccess: true,
@@ -252,19 +364,38 @@ function startCheckIn() {
         
         if (data.status === 'success') {
           checkedInCount++;
-          cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#22c55e' });
+          // Subtle green flash for success
+          cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+            color: '#22c55e',
+            duration: 600,
+            opacity: 0.35
+          });
         } else if (data.status === 'already_checked_in') {
-          cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#f59e0b' });
+          // Yellow flash for warnings
+          cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+            color: '#f59e0b',
+            duration: 600,
+            opacity: 0.4
+          });
         } else {
-          cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#ef4444' });
+          // Red flash for errors
+          cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+            color: '#ef4444',
+            duration: 600,
+            opacity: 0.4
+          });
         }
         
-        // Update the count on screen
+        // Update the stats counter (appears as third line)
         cordova.plugins.mlkit.barcodeScanner.updateStats(
           `${checkedInCount} / ${totalTickets} checked in`
         );
       } catch (error) {
-        cordova.plugins.mlkit.barcodeScanner.flashOverlay({ color: '#ef4444' });
+        cordova.plugins.mlkit.barcodeScanner.flashOverlay({
+          color: '#ef4444',
+          duration: 600,
+          opacity: 0.4
+        });
       }
     },
     () => {
