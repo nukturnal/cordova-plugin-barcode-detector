@@ -299,15 +299,54 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CGFloat frameWidth = screenWidth*_detectorSize;
     CGFloat frameHeight = frameWidth;
 
-    UILabel* _label1 = [[UILabel alloc] init];
-    _label1.frame = CGRectMake(screenWidth/2 - frameWidth/2, screenHeight/2 - frameHeight/2, frameWidth, frameHeight);
-    _label1.layer.masksToBounds = NO;
-    _label1.layer.cornerRadius = 30;
-    _label1.userInteractionEnabled = YES;
-    _label1.layer.borderColor = [UIColor whiteColor].CGColor;
-    _label1.layer.borderWidth = 3.0;
+    // Create corner brackets overlay instead of full square
+    CGFloat cornerLength = 40.0;  // Length of each corner line
+    CGFloat cornerWidth = 4.0;    // Thickness of corner lines
+    UIColor *cornerColor = [UIColor whiteColor];
+    
+    UIView *scanFrameView = [[UIView alloc] init];
+    scanFrameView.frame = CGRectMake(screenWidth/2 - frameWidth/2, screenHeight/2 - frameHeight/2, frameWidth, frameHeight);
+    scanFrameView.backgroundColor = [UIColor clearColor];
+    scanFrameView.userInteractionEnabled = YES;
+    
     UITapGestureRecognizer* tapScanner = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(focusAtPoint:)];
-    [_label1 addGestureRecognizer:tapScanner];
+    [scanFrameView addGestureRecognizer:tapScanner];
+    
+    // Top-left corner (horizontal + vertical)
+    UIView *topLeftH = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cornerLength, cornerWidth)];
+    topLeftH.backgroundColor = cornerColor;
+    [scanFrameView addSubview:topLeftH];
+    
+    UIView *topLeftV = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cornerWidth, cornerLength)];
+    topLeftV.backgroundColor = cornerColor;
+    [scanFrameView addSubview:topLeftV];
+    
+    // Top-right corner (horizontal + vertical)
+    UIView *topRightH = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerLength, 0, cornerLength, cornerWidth)];
+    topRightH.backgroundColor = cornerColor;
+    [scanFrameView addSubview:topRightH];
+    
+    UIView *topRightV = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerWidth, 0, cornerWidth, cornerLength)];
+    topRightV.backgroundColor = cornerColor;
+    [scanFrameView addSubview:topRightV];
+    
+    // Bottom-left corner (horizontal + vertical)
+    UIView *bottomLeftH = [[UIView alloc] initWithFrame:CGRectMake(0, frameHeight - cornerWidth, cornerLength, cornerWidth)];
+    bottomLeftH.backgroundColor = cornerColor;
+    [scanFrameView addSubview:bottomLeftH];
+    
+    UIView *bottomLeftV = [[UIView alloc] initWithFrame:CGRectMake(0, frameHeight - cornerLength, cornerWidth, cornerLength)];
+    bottomLeftV.backgroundColor = cornerColor;
+    [scanFrameView addSubview:bottomLeftV];
+    
+    // Bottom-right corner (horizontal + vertical)
+    UIView *bottomRightH = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerLength, frameHeight - cornerWidth, cornerLength, cornerWidth)];
+    bottomRightH.backgroundColor = cornerColor;
+    [scanFrameView addSubview:bottomRightH];
+    
+    UIView *bottomRightV = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerWidth, frameHeight - cornerLength, cornerWidth, cornerLength)];
+    bottomRightV.backgroundColor = cornerColor;
+    [scanFrameView addSubview:bottomRightV];
 
     CGFloat buttonSize = 45.0;
 
@@ -359,7 +398,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
 
     [self.view addSubview:self.torchButton];
 
-    [self.view addSubview:_label1];
+    [self.view addSubview:scanFrameView];
 
     self.imageView = [[UIImageView alloc] initWithImage:nil];
 

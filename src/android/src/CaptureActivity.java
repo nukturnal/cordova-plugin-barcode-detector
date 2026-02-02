@@ -619,11 +619,26 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
       // Changing the value of x in diameter/x will change the size of the box ;
       // inversely proportionate to x
-      if (DetectorSize <= 0.3) {
-        canvas.drawRect(new RectF(left, top, right, bottom), paint);
-      } else {
-        canvas.drawRoundRect(new RectF(left, top, right, bottom), 100, 100, paint);
-      }
+      
+      // Draw corner brackets instead of full square
+      float cornerLength = diameter * 0.15f;  // 15% of diameter
+      float cornerWidth = 8f;  // Thickness of corner lines
+      
+      // Top-left corner
+      canvas.drawRect(left, top, left + cornerLength, top + cornerWidth, paint);  // Horizontal
+      canvas.drawRect(left, top, left + cornerWidth, top + cornerLength, paint);  // Vertical
+      
+      // Top-right corner
+      canvas.drawRect(right - cornerLength, top, right, top + cornerWidth, paint);  // Horizontal
+      canvas.drawRect(right - cornerWidth, top, right, top + cornerLength, paint);  // Vertical
+      
+      // Bottom-left corner
+      canvas.drawRect(left, bottom - cornerWidth, left + cornerLength, bottom, paint);  // Horizontal
+      canvas.drawRect(left, bottom - cornerLength, left + cornerWidth, bottom, paint);  // Vertical
+      
+      // Bottom-right corner
+      canvas.drawRect(right - cornerLength, bottom - cornerWidth, right, bottom, paint);  // Horizontal
+      canvas.drawRect(right - cornerWidth, bottom - cornerLength, right, bottom, paint);  // Vertical
 
       holder.unlockCanvasAndPost(canvas);
     }
