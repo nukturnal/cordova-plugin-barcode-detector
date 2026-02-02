@@ -381,42 +381,58 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     self.flashOverlayView.userInteractionEnabled = NO;
     [self.view addSubview:self.flashOverlayView];
 
-    // Set up title label (top area, for continuous mode)
+    // Set up text overlays (top-right corner, right-aligned) for continuous mode
     if (self.titleText && self.titleText.length > 0) {
         CGFloat topPadding = 60.0; // Account for notch/status bar area
+        CGFloat rightPadding = 20.0;
+        CGFloat labelWidth = screenWidth - 40; // Allow enough width for text
+        CGFloat lineHeight = 24.0;
+        CGFloat verticalSpacing = 4.0; // Tight spacing between lines
         
+        // Title label (Line 1)
         self.titleLabel = [[UILabel alloc] init];
-        self.titleLabel.frame = CGRectMake(20, topPadding, screenWidth - 40, 28);
+        self.titleLabel.frame = CGRectMake(rightPadding, topPadding, labelWidth, lineHeight);
         self.titleLabel.text = self.titleText;
         self.titleLabel.textColor = [UIColor whiteColor];
-        self.titleLabel.font = [UIFont boldSystemFontOfSize:20];
-        self.titleLabel.textAlignment = NSTextAlignmentCenter;
-        self.titleLabel.transform = CGAffineTransformMakeRotation(M_PI / 2);
+        self.titleLabel.font = [UIFont systemFontOfSize:17 weight:UIFontWeightSemibold];
+        self.titleLabel.textAlignment = NSTextAlignmentRight;
+        self.titleLabel.numberOfLines = 1;
         [self.view addSubview:self.titleLabel];
         
-        // Subtitle label
+        // Subtitle label (Line 2)
         if (self.subtitleText && self.subtitleText.length > 0) {
             self.subtitleLabel = [[UILabel alloc] init];
-            self.subtitleLabel.frame = CGRectMake(20, topPadding + 32, screenWidth - 40, 20);
+            self.subtitleLabel.frame = CGRectMake(rightPadding, topPadding + lineHeight + verticalSpacing, labelWidth, lineHeight - 4);
             self.subtitleLabel.text = self.subtitleText;
             self.subtitleLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.7];
-            self.subtitleLabel.font = [UIFont systemFontOfSize:14];
-            self.subtitleLabel.textAlignment = NSTextAlignmentCenter;
-            self.subtitleLabel.transform = CGAffineTransformMakeRotation(M_PI / 2);
+            self.subtitleLabel.font = [UIFont systemFontOfSize:14 weight:UIFontWeightRegular];
+            self.subtitleLabel.textAlignment = NSTextAlignmentRight;
+            self.subtitleLabel.numberOfLines = 1;
             [self.view addSubview:self.subtitleLabel];
         }
     }
     
-    // Set up stats label (below viewfinder, for continuous mode)
+    // Stats label (Line 3, below title/subtitle for continuous mode)
     if (self.continuousMode) {
+        CGFloat topPadding = 60.0;
+        CGFloat rightPadding = 20.0;
+        CGFloat labelWidth = screenWidth - 40;
+        CGFloat lineHeight = 24.0;
+        CGFloat verticalSpacing = 4.0;
+        
+        // Calculate Y position (below subtitle if it exists, otherwise below title)
+        CGFloat statsY = topPadding + lineHeight + verticalSpacing;
+        if (self.subtitleText && self.subtitleText.length > 0) {
+            statsY += (lineHeight - 4) + verticalSpacing;
+        }
+        
         self.statsLabel = [[UILabel alloc] init];
-        CGFloat statsY = screenHeight/2 + frameHeight/2 + 20;
-        self.statsLabel.frame = CGRectMake(20, statsY, screenWidth - 40, 24);
+        self.statsLabel.frame = CGRectMake(rightPadding, statsY, labelWidth, lineHeight - 4);
         self.statsLabel.text = @"";
-        self.statsLabel.textColor = [UIColor whiteColor];
-        self.statsLabel.font = [UIFont systemFontOfSize:16];
-        self.statsLabel.textAlignment = NSTextAlignmentCenter;
-        self.statsLabel.transform = CGAffineTransformMakeRotation(M_PI / 2);
+        self.statsLabel.textColor = [UIColor colorWithWhite:1.0 alpha:0.65];
+        self.statsLabel.font = [UIFont monospacedDigitSystemFontOfSize:13 weight:UIFontWeightMedium];
+        self.statsLabel.textAlignment = NSTextAlignmentRight;
+        self.statsLabel.numberOfLines = 1;
         [self.view addSubview:self.statsLabel];
     }
 
@@ -538,17 +554,21 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
 
 #pragma mark - Continuous Mode Methods
 
-- (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration {
+- (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration opacity:(CGFloat)opacity {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (self.flashOverlayView == nil) {
             return;
         }
         
         self.flashOverlayView.backgroundColor = color;
-        self.flashOverlayView.alpha = 0.5;
+        self.flashOverlayView.alpha = opacity;
         self.flashOverlayView.hidden = NO;
         
-        [UIView animateWithDuration:duration animations:^{
+        // Animate out with a smooth fade
+        [UIView animateWithDuration:duration 
+                              delay:0.0
+                            options:UIViewAnimationOptionCurveEaseOut
+                         animations:^{
             self.flashOverlayView.alpha = 0.0;
         } completion:^(BOOL finished) {
             self.flashOverlayView.hidden = YES;

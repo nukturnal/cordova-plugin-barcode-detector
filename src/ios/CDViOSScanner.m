@@ -61,6 +61,16 @@
                 self.cameraViewController.barcodeFormats = barcodeFormats;
                 self.cameraViewController.detectorSize = (CGFloat)[[config valueForKey:@"detectorSize"] ?: @0.5 floatValue];
                 self.cameraViewController.modalPresentationStyle = UIModalPresentationFullScreen;
+                
+                // Set title and subtitle for single scan mode (same as continuous)
+                NSString* title = [config valueForKey:@"title"];
+                NSString* subtitle = [config valueForKey:@"subtitle"];
+                if (title) {
+                    self.cameraViewController.titleText = title;
+                }
+                if (subtitle) {
+                    self.cameraViewController.subtitleText = subtitle;
+                }
 
                 NSLog(@"scanAreaSize: %f, barcodeFormats: %@", self.cameraViewController.detectorSize, self.cameraViewController.barcodeFormats);
 
@@ -279,13 +289,19 @@
         
         NSDictionary* config = [command.arguments objectAtIndex:0];
         NSString* colorHex = [config valueForKey:@"color"] ?: @"#22c55e";
-        NSNumber* durationNum = [config valueForKey:@"duration"] ?: @300;
+        NSNumber* durationNum = [config valueForKey:@"duration"] ?: @500; // Default 500ms (was 300ms)
+        NSNumber* opacityNum = [config valueForKey:@"opacity"] ?: @0.4;   // Default 0.4 (40%)
+        
         NSTimeInterval duration = [durationNum doubleValue] / 1000.0; // Convert ms to seconds
+        CGFloat opacity = [opacityNum doubleValue];
+        
+        // Clamp opacity between 0.0 and 1.0
+        opacity = MAX(0.0, MIN(1.0, opacity));
         
         // Parse hex color
         UIColor* color = [self colorFromHexString:colorHex];
         
-        [self.cameraViewController showFlashOverlayWithColor:color duration:duration];
+        [self.cameraViewController showFlashOverlayWithColor:color duration:duration opacity:opacity];
         
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];

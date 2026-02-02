@@ -36,7 +36,7 @@
 @property(nonatomic,copy) NSString *titleText;
 @property(nonatomic,copy) NSString *subtitleText;
 
-- (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration;
+- (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration opacity:(CGFloat)opacity;
 - (void)updateStatsText:(NSString *)stats;
 
 @end
