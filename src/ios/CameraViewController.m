@@ -560,19 +560,16 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
             return;
         }
         
+        // Show instantly - flat, in your face
         self.flashOverlayView.backgroundColor = color;
         self.flashOverlayView.alpha = opacity;
         self.flashOverlayView.hidden = NO;
         
-        // Animate out with a smooth fade
-        [UIView animateWithDuration:duration 
-                              delay:0.0
-                            options:UIViewAnimationOptionCurveEaseOut
-                         animations:^{
-            self.flashOverlayView.alpha = 0.0;
-        } completion:^(BOOL finished) {
+        // Stay visible for the duration, then hide instantly
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             self.flashOverlayView.hidden = YES;
-        }];
+            self.flashOverlayView.alpha = 0.0;
+        });
     });
 }
 

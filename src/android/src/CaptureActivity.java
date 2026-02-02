@@ -476,8 +476,9 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         switch (action) {
           case ACTION_FLASH_OVERLAY:
             int color = intent.getIntExtra("color", Color.GREEN);
-            int duration = intent.getIntExtra("duration", 300);
-            showFlashOverlay(color, duration);
+            int duration = intent.getIntExtra("duration", 500);
+            float opacity = intent.getFloatExtra("opacity", 0.4f);
+            showFlashOverlay(color, duration, opacity);
             break;
           case ACTION_CLOSE_SCANNER:
             closeScanner();
@@ -524,24 +525,20 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   /**
    * Show flash overlay with color animation
    */
-  private void showFlashOverlay(int color, int duration) {
+  private void showFlashOverlay(int color, int duration, float opacity) {
     if (_FlashOverlay == null) return;
 
     runOnUiThread(() -> {
+      // Show instantly - flat, in your face
       _FlashOverlay.setBackgroundColor(color);
-      _FlashOverlay.setAlpha(0.4f);
+      _FlashOverlay.setAlpha(opacity);
       _FlashOverlay.setVisibility(View.VISIBLE);
 
-      _FlashOverlay.animate()
-          .alpha(0f)
-          .setDuration(duration)
-          .setListener(new AnimatorListenerAdapter() {
-            @Override
-            public void onAnimationEnd(Animator animation) {
-              _FlashOverlay.setVisibility(View.GONE);
-            }
-          })
-          .start();
+      // Stay visible for the duration, then hide instantly
+      _FlashOverlay.postDelayed(() -> {
+        _FlashOverlay.setVisibility(View.GONE);
+        _FlashOverlay.setAlpha(0f);
+      }, duration);
     });
   }
 

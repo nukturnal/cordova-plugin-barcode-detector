@@ -256,7 +256,8 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
   private void flashOverlay(JSONArray args) throws JSONException {
     JSONObject config = args.getJSONObject(0);
     String colorStr = config.optString("color", "#22c55e");
-    int duration = config.optInt("duration", 300);
+    int duration = config.optInt("duration", 500);
+    double opacity = config.optDouble("opacity", 0.4);
 
     int color;
     try {
@@ -268,6 +269,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     Intent intent = new Intent(CaptureActivity.ACTION_FLASH_OVERLAY);
     intent.putExtra("color", color);
     intent.putExtra("duration", duration);
+    intent.putExtra("opacity", (float) opacity);
     cordova.getContext().sendBroadcast(intent);
   }
 
