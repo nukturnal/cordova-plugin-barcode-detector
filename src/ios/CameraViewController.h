@@ -38,6 +38,7 @@
 
 - (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration opacity:(CGFloat)opacity;
 - (void)updateStatsText:(NSString *)stats;
+- (void)animateFocusEffect;
 
 @end
 

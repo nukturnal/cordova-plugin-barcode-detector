@@ -39,6 +39,7 @@
 @property(nonatomic, strong) UILabel *titleLabel;
 @property(nonatomic, strong) UILabel *subtitleLabel;
 @property(nonatomic, strong) UILabel *statsLabel;
+@property(nonatomic, strong) UIView *scanFrameView;  // Reference to scan frame for animations
 @property(nonatomic, copy) NSString *lastScannedValue;
 @property(nonatomic, assign) NSTimeInterval lastScanTime;
 
@@ -235,11 +236,18 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
                         self.lastScannedValue = barcodeValue;
                         self.lastScanTime = currentTime;
                         
+                        // Trigger focus animation
+                        [self animateFocusEffect];
+                        
                         // Send result via delegate (don't stop camera)
                         [self->delegate sendContinuousResult:barcode];
                     }
                 } else {
                     // Single scan mode: stop and return result
+                    
+                    // Trigger focus animation
+                    [self animateFocusEffect];
+                    
                     [self cleanupCaptureSession];
                     [self->_session stopRunning];
                     [self->delegate sendResult:barcode];
@@ -399,6 +407,9 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     [self.view addSubview:self.torchButton];
 
     [self.view addSubview:scanFrameView];
+    
+    // Store reference for animations
+    self.scanFrameView = scanFrameView;
 
     self.imageView = [[UIImageView alloc] initWithImage:nil];
 
@@ -609,6 +620,35 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
             self.flashOverlayView.hidden = YES;
             self.flashOverlayView.alpha = 0.0;
         });
+    });
+}
+
+- (void)animateFocusEffect {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (self.scanFrameView == nil) {
+            return;
+        }
+        
+        // Quick focus effect: scale down then spring back
+        [UIView animateWithDuration:0.15
+                              delay:0.0
+             usingSpringWithDamping:0.5
+              initialSpringVelocity:0.8
+                            options:UIViewAnimationOptionCurveEaseOut
+                         animations:^{
+            // Shrink slightly (focus in)
+            self.scanFrameView.transform = CGAffineTransformMakeScale(0.92, 0.92);
+        } completion:^(BOOL finished) {
+            // Spring back to normal with bounce
+            [UIView animateWithDuration:0.4
+                                  delay:0.0
+                 usingSpringWithDamping:0.4
+                  initialSpringVelocity:1.0
+                                options:UIViewAnimationOptionCurveEaseInOut
+                             animations:^{
+                self.scanFrameView.transform = CGAffineTransformIdentity;
+            } completion:nil];
+        }];
     });
 }
 

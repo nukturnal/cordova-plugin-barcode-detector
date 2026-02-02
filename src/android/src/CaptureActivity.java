@@ -559,6 +559,9 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
    * Send barcode result - either finish activity or broadcast for continuous mode
    */
   private void sendBarcodeResult(Barcode barcode, String value) {
+    // Trigger focus animation
+    animateFocusEffect();
+    
     Intent data = new Intent();
     data.putExtra(BarcodeFormat, barcode.getFormat());
     data.putExtra(BarcodeType, barcode.getValueType());
@@ -577,6 +580,32 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
       setResult(CommonStatusCodes.SUCCESS, data);
       finish();
     }
+  }
+  
+  /**
+   * Animate focus effect on scan frame (corner brackets)
+   */
+  private void animateFocusEffect() {
+    if (surfaceView == null) return;
+    
+    runOnUiThread(() -> {
+      // Quick focus effect: scale down then spring back
+      surfaceView.animate()
+          .scaleX(0.92f)
+          .scaleY(0.92f)
+          .setDuration(150)
+          .setInterpolator(new android.view.animation.DecelerateInterpolator())
+          .withEndAction(() -> {
+            // Spring back with overshoot
+            surfaceView.animate()
+                .scaleX(1.0f)
+                .scaleY(1.0f)
+                .setDuration(400)
+                .setInterpolator(new android.view.animation.OvershootInterpolator(2.0f))
+                .start();
+          })
+          .start();
+    });
   }
 
   @Override
