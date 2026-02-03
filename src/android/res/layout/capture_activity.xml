@@ -27,13 +27,15 @@
         app:layout_constraintTop_toTopOf="parent" />
 
     <!-- Flash Overlay for scan result feedback (initially invisible) -->
+    <!-- CRITICAL: High elevation (999dp) ensures it renders above ALL other views -->
+    <!-- Without this, SurfaceView overlay can render on top due to Android's layering -->
     <View
         android:id="@+id/flashOverlay"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:background="#00000000"
         android:visibility="gone"
-        android:elevation="10dp"
+        android:elevation="999dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"

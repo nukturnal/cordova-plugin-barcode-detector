@@ -160,12 +160,13 @@ class MLKitBarcodeScanner {
 
     /**
      * Flash a color overlay on the scanner (for scan result feedback)
-     * @param {Object} options - { color: '#22c55e', duration: 300 }
+     * @param {Object} options - { color: '#22c55e', duration: 300, opacity: 0.4 }
      */
     flashOverlay(options = {}) {
         const config = {
             color: options.color || '#22c55e',
             duration: options.duration || 300,
+            opacity: options.opacity !== undefined ? options.opacity : 0.4,
         };
         cordova.exec(() => {}, () => {}, 'cordova-plugin-barcode-detector', 'flashOverlay', [config]);
     }

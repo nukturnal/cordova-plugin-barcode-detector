@@ -529,15 +529,27 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     if (_FlashOverlay == null) return;
 
     runOnUiThread(() -> {
+      Log.d(TAG, String.format("[Android Flash] Showing overlay - color: #%06X, opacity: %.2f, duration: %dms", 
+          (color & 0xFFFFFF), opacity, duration));
+      
+      // CRITICAL: Bring overlay to front and ensure it's above everything
+      // Without this, other views might render on top, reducing perceived opacity
+      _FlashOverlay.bringToFront();
+      _FlashOverlay.setElevation(999f); // Maximum elevation to ensure it's on top
+      
       // Show instantly - flat, in your face
       _FlashOverlay.setBackgroundColor(color);
       _FlashOverlay.setAlpha(opacity);
       _FlashOverlay.setVisibility(View.VISIBLE);
+      
+      Log.d(TAG, String.format("[Android Flash] Overlay shown with alpha: %.2f, visibility: %d, elevation: %.1f", 
+          _FlashOverlay.getAlpha(), _FlashOverlay.getVisibility(), _FlashOverlay.getElevation()));
 
       // Stay visible for the duration, then hide instantly
       _FlashOverlay.postDelayed(() -> {
         _FlashOverlay.setVisibility(View.GONE);
         _FlashOverlay.setAlpha(0f);
+        Log.d(TAG, "[Android Flash] Overlay hidden after duration");
       }, duration);
     });
   }

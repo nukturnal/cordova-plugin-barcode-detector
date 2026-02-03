@@ -610,15 +610,24 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
             return;
         }
         
+        NSLog(@"[iOS Flash] Showing overlay - color: %@, opacity: %.2f, duration: %.2fs", color, opacity, duration);
+        
+        // CRITICAL: Bring overlay to the very front of view hierarchy
+        // Without this, text labels and other views can render on top, reducing perceived opacity
+        [self.view bringSubviewToFront:self.flashOverlayView];
+        
         // Show instantly - flat, in your face
         self.flashOverlayView.backgroundColor = color;
         self.flashOverlayView.alpha = opacity;
         self.flashOverlayView.hidden = NO;
         
+        NSLog(@"[iOS Flash] Overlay shown with alpha: %.2f, hidden: %d", self.flashOverlayView.alpha, self.flashOverlayView.hidden);
+        
         // Stay visible for the duration, then hide instantly
         dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(duration * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
             self.flashOverlayView.hidden = YES;
             self.flashOverlayView.alpha = 0.0;
+            NSLog(@"[iOS Flash] Overlay hidden after duration");
         });
     });
 }
