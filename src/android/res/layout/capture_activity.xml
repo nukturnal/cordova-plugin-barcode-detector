@@ -78,15 +78,16 @@
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <!-- Title Text (centered, below top bar) -->
+    <!-- Title Text (Line 1, top-right) -->
     <TextView
         android:id="@+id/titleText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="80dp"
+        android:layout_marginTop="60dp"
+        android:layout_marginEnd="20dp"
         android:text=""
         android:textColor="#FFFFFF"
-        android:textSize="22sp"
+        android:textSize="17sp"
         android:textStyle="bold"
         android:shadowColor="#80000000"
         android:shadowDx="1"
@@ -94,44 +95,44 @@
         android:shadowRadius="2"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Subtitle Text (centered, below title) -->
+    <!-- Subtitle Text (Line 2, below title, right-aligned) -->
     <TextView
         android:id="@+id/subtitleText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="20dp"
         android:text=""
-        android:textColor="#CCFFFFFF"
-        android:textSize="16sp"
+        android:textColor="#B3FFFFFF"
+        android:textSize="14sp"
         android:shadowColor="#80000000"
         android:shadowDx="1"
         android:shadowDy="1"
         android:shadowRadius="2"
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/titleText" />
 
-    <!-- Stats Text (bottom center, above torch button) -->
+    <!-- Stats Text (Line 3, below subtitle, right-aligned) -->
     <TextView
         android:id="@+id/statsText"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="80dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginEnd="20dp"
         android:text=""
-        android:textColor="#FFFFFF"
-        android:textSize="16sp"
+        android:textColor="#A6FFFFFF"
+        android:textSize="13sp"
+        android:fontFamily="monospace"
         android:shadowColor="#80000000"
         android:shadowDx="1"
         android:shadowDy="1"
         android:shadowRadius="2"
         android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent" />
+        app:layout_constraintTop_toBottomOf="@id/subtitleText" />
 
     <!-- Torch Button (bottom-right) -->
     <ImageButton
