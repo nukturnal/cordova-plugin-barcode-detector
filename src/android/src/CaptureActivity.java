@@ -258,9 +258,10 @@ public class CaptureActivity extends AppCompatActivity {
       }
     };
 
-    findViewById(getResources().getIdentifier("topLayout", "id", getPackageName())).setOnClickListener(listener);
+    View topLayout = findViewById(getResources().getIdentifier("topLayout", "id", getPackageName()));
+    topLayout.setOnClickListener(listener);
     Snackbar
-        .make(surfaceView, getResources().getIdentifier("permission_camera_rationale", "string", getPackageName()),
+        .make(topLayout, getResources().getIdentifier("permission_camera_rationale", "string", getPackageName()),
             Snackbar.LENGTH_INDEFINITE)
         .setAction(getResources().getIdentifier("ok", "string", getPackageName()), listener).show();
 
