@@ -519,6 +519,7 @@ public class CaptureActivity extends AppCompatActivity {
       @Override
       public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
+        Log.d(TAG, "CommandReceiver received action: " + action);
         if (action == null) return;
 
         switch (action) {
@@ -533,11 +534,15 @@ public class CaptureActivity extends AppCompatActivity {
             break;
           case ACTION_UPDATE_UI:
             String stats = intent.getStringExtra("stats");
+            Log.d(TAG, "UPDATE_UI received with stats: " + stats);
             if (stats != null && _StatsText != null) {
               runOnUiThread(() -> {
+                Log.d(TAG, "Setting stats text to: " + stats);
                 _StatsText.setText(stats);
                 _StatsText.setVisibility(View.VISIBLE);
               });
+            } else {
+              Log.w(TAG, "Stats is null (" + (stats == null) + ") or _StatsText is null (" + (_StatsText == null) + ")");
             }
             break;
         }
@@ -550,10 +555,11 @@ public class CaptureActivity extends AppCompatActivity {
     filter.addAction(ACTION_UPDATE_UI);
 
     if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
-      registerReceiver(_CommandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+      registerReceiver(_CommandReceiver, filter, Context.RECEIVER_EXPORTED);
     } else {
       registerReceiver(_CommandReceiver, filter);
     }
+    Log.d(TAG, "CommandReceiver registered for actions: FLASH_OVERLAY, CLOSE_SCANNER, UPDATE_UI");
   }
 
   /**

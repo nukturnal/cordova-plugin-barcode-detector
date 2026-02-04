@@ -271,6 +271,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     }
 
     Intent intent = new Intent(CaptureActivity.ACTION_FLASH_OVERLAY);
+    intent.setPackage(cordova.getContext().getPackageName());
     intent.putExtra("color", color);
     intent.putExtra("duration", duration);
     intent.putExtra("opacity", (float) opacity);
@@ -279,6 +280,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
 
   private void closeScanner() {
     Intent intent = new Intent(CaptureActivity.ACTION_CLOSE_SCANNER);
+    intent.setPackage(cordova.getContext().getPackageName());
     cordova.getContext().sendBroadcast(intent);
     unregisterBarcodeReceiver();
     _ContinuousMode = false;
@@ -287,9 +289,12 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
   private void updateStats(JSONArray args) throws JSONException {
     JSONObject config = args.getJSONObject(0);
     String stats = config.optString("stats", "");
+    Log.d(TAG, "updateStats called with: " + stats);
 
     Intent intent = new Intent(CaptureActivity.ACTION_UPDATE_UI);
+    intent.setPackage(cordova.getContext().getPackageName());
     intent.putExtra("stats", stats);
+    Log.d(TAG, "Sending UPDATE_UI broadcast to package: " + cordova.getContext().getPackageName());
     cordova.getContext().sendBroadcast(intent);
   }
 
