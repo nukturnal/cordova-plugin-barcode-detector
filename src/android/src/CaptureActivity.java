@@ -98,6 +98,10 @@ public class CaptureActivity extends AppCompatActivity {
   private long _LastScanTime = 0;
   private static final long SCAN_DEBOUNCE_MS = 1500; // Prevent duplicate scans
   private static final String TAG = "CaptureActivity";
+  
+  // UI initialization tracking
+  private boolean _UIInitialized = false;
+  private boolean _CameraStarted = false;
 
   // Broadcast actions for communication with plugin
   public static final String ACTION_FLASH_OVERLAY = "com.mobisys.barcode.FLASH_OVERLAY";
@@ -161,10 +165,7 @@ public class CaptureActivity extends AppCompatActivity {
     _LogoHeight = getIntent().getIntExtra("LogoHeight", 40);
     
     if (_ShowLogo && _ScannerLogo != null) {
-      // Position will be set in surfaceChanged when we know the scan frame dimensions
-      _ScannerLogo.setVisibility(View.VISIBLE);
-      
-      // Set height while maintaining aspect ratio
+      // Set height while maintaining aspect ratio - visibility set after layout
       ViewGroup.LayoutParams params = _ScannerLogo.getLayoutParams();
       params.height = (int) (getResources().getDisplayMetrics().density * _LogoHeight);
       _ScannerLogo.setLayoutParams(params);
@@ -292,27 +293,60 @@ public class CaptureActivity extends AppCompatActivity {
         .setPositiveButton(getResources().getIdentifier("ok", "string", getPackageName()), listener).show();
   }
   
-  private void positionScannerLogo() {
-    if (_ScannerLogo == null || !_ShowLogo || mCameraView == null) {
-      return;
-    }
+  /**
+   * Initialize UI elements that depend on layout being complete.
+   * Called once when layout is ready and camera has started.
+   */
+  private void initializeUIAfterLayout() {
+    if (_UIInitialized || mCameraView == null) return;
     
     int height = mCameraView.getHeight();
     int width = mCameraView.getWidth();
     
-    int diameter = Math.min(width, height);
+    // Wait for valid dimensions
+    if (width == 0 || height == 0) {
+      Log.d(TAG, "Layout not ready, waiting...");
+      mCameraView.post(this::initializeUIAfterLayout);
+      return;
+    }
+    
+    Log.d(TAG, "Initializing UI after layout: " + width + "x" + height);
+    _UIInitialized = true;
+    
+    // Position logo
+    positionScannerLogo(width, height);
+    
+    // Start breathing animation
+    if (_ScannerBrackets != null) {
+      _ScannerBrackets.invalidate(); // Force redraw with correct dimensions
+      _ScannerBrackets.startBreathingAnimation();
+    }
+    
+    // Send SCANNER_READY now that UI is fully initialized
+    Intent readyIntent = new Intent(ACTION_SCANNER_READY);
+    readyIntent.setPackage(getPackageName());
+    sendBroadcast(readyIntent);
+    Log.d(TAG, "Sent SCANNER_READY broadcast (UI initialized)");
+  }
+  
+  private void positionScannerLogo(int viewWidth, int viewHeight) {
+    if (_ScannerLogo == null || !_ShowLogo) {
+      return;
+    }
+    
+    int diameter = Math.min(viewWidth, viewHeight);
     int offset = (int) ((1 - DetectorSize) * diameter);
     diameter -= offset;
     
-    // Calculate scan frame bounds (same logic as DrawFocusRect)
-    int right = width / 2 + diameter / 2;
-    int bottom = height / 2 + diameter / 2;
+    // Calculate scan frame bounds (same logic as ScannerBracketsView)
+    int right = viewWidth / 2 + diameter / 2;
+    int bottom = viewHeight / 2 + diameter / 2;
     
     // Position logo below scan frame, right-aligned to bracket edge
     float logoPadding = 16 * getResources().getDisplayMetrics().density; // 16dp
     float logoHeight = _LogoHeight * getResources().getDisplayMetrics().density;
     
-    // Calculate width based on aspect ratio (adjust view bounds does this)
+    // Use post to ensure drawable is loaded
     _ScannerLogo.post(() -> {
       if (_ScannerLogo.getDrawable() != null) {
         float aspectRatio = (float) _ScannerLogo.getDrawable().getIntrinsicWidth() / 
@@ -325,9 +359,12 @@ public class CaptureActivity extends AppCompatActivity {
         
         _ScannerLogo.setX(logoX);
         _ScannerLogo.setY(logoY);
+        _ScannerLogo.setVisibility(View.VISIBLE);
         
         Log.d(TAG, "Scanner logo positioned: x=" + logoX + ", y=" + logoY + 
               ", w=" + logoWidth + ", h=" + logoHeight);
+      } else {
+        Log.w(TAG, "Scanner logo drawable is null");
       }
     });
   }
@@ -352,8 +389,8 @@ public class CaptureActivity extends AppCompatActivity {
   @Override
   protected void onResume() {
     super.onResume();
-    // Resume animation when activity resumes
-    if (_ScannerBrackets != null) {
+    // Only resume animation if UI was already initialized
+    if (_UIInitialized && _ScannerBrackets != null) {
       _ScannerBrackets.startBreathingAnimation();
     }
   }
@@ -380,18 +417,13 @@ public class CaptureActivity extends AppCompatActivity {
         try {
           ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
           CaptureActivity.this.bindPreview(cameraProvider);
+          _CameraStarted = true;
           
-          // Start breathing animation and position logo after camera binds
-          runOnUiThread(() -> {
-            if (_ScannerBrackets != null) {
-              _ScannerBrackets.startBreathingAnimation();
-            }
-            positionScannerLogo();
-          });
+          // Initialize UI after camera binds and layout is ready
+          runOnUiThread(() -> initializeUIAfterLayout());
 
         } catch (ExecutionException | InterruptedException e) {
-          // No errors need to be handled for this Future.
-          // This should never be reached.
+          Log.e(TAG, "Error starting camera", e);
         }
       }
     }, ContextCompat.getMainExecutor(this));
@@ -561,12 +593,7 @@ public class CaptureActivity extends AppCompatActivity {
       registerReceiver(_CommandReceiver, filter);
     }
     Log.d(TAG, "CommandReceiver registered for actions: FLASH_OVERLAY, CLOSE_SCANNER, UPDATE_UI");
-
-    // Notify plugin that scanner is ready to receive commands
-    Intent readyIntent = new Intent(ACTION_SCANNER_READY);
-    readyIntent.setPackage(getPackageName());
-    sendBroadcast(readyIntent);
-    Log.d(TAG, "Sent SCANNER_READY broadcast");
+    // Note: SCANNER_READY is sent from initializeUIAfterLayout() once layout is complete
   }
 
   /**

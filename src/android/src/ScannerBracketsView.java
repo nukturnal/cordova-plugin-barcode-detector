@@ -74,17 +74,35 @@ public class ScannerBracketsView extends View {
     }
     
     @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        android.util.Log.d(TAG, "onSizeChanged: " + w + "x" + h);
+        // Force redraw when size changes
+        invalidate();
+    }
+    
+    @Override
     protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
         
         int width = getWidth();
         int height = getHeight();
         
-        if (width == 0 || height == 0) return;
+        // Skip drawing if layout isn't ready
+        if (width == 0 || height == 0) {
+            android.util.Log.d(TAG, "onDraw skipped - dimensions not ready");
+            return;
+        }
         
         int diameter = Math.min(width, height);
         int offset = (int) ((1 - detectorSize) * diameter);
         diameter -= offset;
+        
+        // Ensure minimum size
+        if (diameter < 100) {
+            android.util.Log.d(TAG, "onDraw skipped - diameter too small: " + diameter);
+            return;
+        }
         
         int left = width / 2 - diameter / 2;
         int top = height / 2 - diameter / 2;
