@@ -166,11 +166,11 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
       _SubtitleText.setVisibility(View.VISIBLE);
     }
     
-    // Set up scanner logo (below scan frame)
+    // Set up scanner logo (below scan frame) - works for all scan modes
     _ShowLogo = getIntent().getBooleanExtra("ShowLogo", true);
     _LogoHeight = getIntent().getIntExtra("LogoHeight", 40);
     
-    if (_ContinuousMode && _ShowLogo && _ScannerLogo != null) {
+    if (_ShowLogo && _ScannerLogo != null) {
       // Position will be set in surfaceChanged when we know the scan frame dimensions
       _ScannerLogo.setVisibility(View.VISIBLE);
       
@@ -183,7 +183,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     }
 
     // Register broadcast receiver for commands from plugin
-    registerCommandReceiver();
     registerCommandReceiver();
 
     int rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
@@ -315,7 +314,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   }
   
   private void positionScannerLogo() {
-    if (_ScannerLogo == null || !_ShowLogo || !_ContinuousMode || mCameraView == null) {
+    if (_ScannerLogo == null || !_ShowLogo || mCameraView == null) {
       return;
     }
     

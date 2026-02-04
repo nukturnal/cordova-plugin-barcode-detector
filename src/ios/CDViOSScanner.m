@@ -71,8 +71,17 @@
                 if (subtitle) {
                     self.cameraViewController.subtitleText = subtitle;
                 }
+                
+                // Set logo options (default: show logo at 40pt height)
+                NSNumber* showLogoNum = [config valueForKey:@"showLogo"];
+                self.cameraViewController.showLogo = showLogoNum ? [showLogoNum boolValue] : YES;
+                NSNumber* logoHeightNum = [config valueForKey:@"logoHeight"];
+                self.cameraViewController.logoHeight = logoHeightNum ? [logoHeightNum floatValue] : 40.0;
 
-                NSLog(@"scanAreaSize: %f, barcodeFormats: %@", self.cameraViewController.detectorSize, self.cameraViewController.barcodeFormats);
+                NSLog(@"scanAreaSize: %f, barcodeFormats: %@, showLogo: %d", 
+                      self.cameraViewController.detectorSize, 
+                      self.cameraViewController.barcodeFormats,
+                      self.cameraViewController.showLogo);
 
                 [self.viewController presentViewController:self.cameraViewController animated: NO completion:nil];
                 self->_callback = command.callbackId;

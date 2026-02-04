@@ -152,6 +152,9 @@ static const NSTimeInterval kScanDebounceSeconds = 1.5;
                                     forKey:@"orientation"];
         
         [self.session startRunning];
+        
+        // Set up logo (properties are now set by CDViOSScanner)
+        [self setupLogo];
     }
 }
 
@@ -486,37 +489,51 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         self.statsLabel.numberOfLines = 1;
         [self.view addSubview:self.statsLabel];
     }
-    
-    // Set up logo image below scan frame (for continuous mode)
-    if (self.continuousMode && self.showLogo) {
-        UIImage *logoImage = [UIImage imageNamed:@"scanner_logo"];
-        if (logoImage) {
-            // Calculate logo size maintaining aspect ratio based on specified height
-            CGFloat logoHeight = self.logoHeight > 0 ? self.logoHeight : 40.0;
-            CGFloat aspectRatio = logoImage.size.width / logoImage.size.height;
-            CGFloat logoWidth = logoHeight * aspectRatio;
-            
-            // Position: below scan frame, right-aligned to bracket edge
-            // scanFrameView.frame gives us the scan area position
-            CGFloat scanFrameBottom = screenHeight/2 + frameHeight/2;
-            CGFloat scanFrameRight = screenWidth/2 + frameWidth/2;
-            CGFloat logoPadding = 16.0; // Padding below brackets
-            
-            CGFloat logoX = scanFrameRight - logoWidth; // Right-align to bracket edge
-            CGFloat logoY = scanFrameBottom + logoPadding;
-            
-            self.logoImageView = [[UIImageView alloc] initWithImage:logoImage];
-            self.logoImageView.frame = CGRectMake(logoX, logoY, logoWidth, logoHeight);
-            self.logoImageView.contentMode = UIViewContentModeScaleAspectFit;
-            self.logoImageView.userInteractionEnabled = NO;
-            [self.view addSubview:self.logoImageView];
-            
-            NSLog(@"Logo added: size=%.0fx%.0f, position=(%.0f, %.0f)", logoWidth, logoHeight, logoX, logoY);
-        } else {
-            NSLog(@"Warning: scanner_logo image not found in bundle");
-        }
-    }
 
+}
+
+#pragma mark - Logo Setup
+
+- (void)setupLogo {
+    // Show logo on all scan modes when enabled
+    if (!self.showLogo) {
+        NSLog(@"Logo disabled via showLogo=NO");
+        return;
+    }
+    
+    UIImage *logoImage = [UIImage imageNamed:@"scanner_logo"];
+    if (!logoImage) {
+        NSLog(@"Warning: scanner_logo image not found in bundle");
+        return;
+    }
+    
+    CGRect screenRect = [[UIScreen mainScreen] bounds];
+    CGFloat screenWidth = screenRect.size.width;
+    CGFloat screenHeight = screenRect.size.height;
+    CGFloat frameWidth = screenWidth * self.detectorSize;
+    CGFloat frameHeight = frameWidth;
+    
+    // Calculate logo size maintaining aspect ratio based on specified height
+    CGFloat logoHeight = self.logoHeight > 0 ? self.logoHeight : 40.0;
+    CGFloat aspectRatio = logoImage.size.width / logoImage.size.height;
+    CGFloat logoWidth = logoHeight * aspectRatio;
+    
+    // Position: below scan frame, right-aligned to bracket edge
+    CGFloat scanFrameBottom = screenHeight/2 + frameHeight/2;
+    CGFloat scanFrameRight = screenWidth/2 + frameWidth/2;
+    CGFloat logoPadding = 16.0; // Padding below brackets
+    
+    CGFloat logoX = scanFrameRight - logoWidth; // Right-align to bracket edge
+    CGFloat logoY = scanFrameBottom + logoPadding;
+    
+    self.logoImageView = [[UIImageView alloc] initWithImage:logoImage];
+    self.logoImageView.frame = CGRectMake(logoX, logoY, logoWidth, logoHeight);
+    self.logoImageView.contentMode = UIViewContentModeScaleAspectFit;
+    self.logoImageView.userInteractionEnabled = NO;
+    [self.view addSubview:self.logoImageView];
+    
+    NSLog(@"Logo added: size=%.0fx%.0f, position=(%.0f, %.0f), showLogo=%d", 
+          logoWidth, logoHeight, logoX, logoY, self.showLogo);
 }
 
 #pragma mark - Helper Functions
