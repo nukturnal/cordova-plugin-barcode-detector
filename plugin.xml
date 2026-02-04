@@ -90,6 +90,8 @@
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
     <source-file src="src/android/src/MLKitBarcodeScanner.java"
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
+    <source-file src="src/android/src/ScannerBracketsView.java"
+      target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner" />
     <source-file src="src/android/src/utils/BitmapUtils.java"
       target-dir="src/com/mobisys/cordova/plugins/mlkit/barcode/scanner/utils" />
     <source-file src="src/android/src/utils/FrameMetadata.java"

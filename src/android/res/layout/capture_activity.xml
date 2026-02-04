@@ -16,9 +16,9 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- Overlay for drawing focus rectangle -->
-    <SurfaceView
-        android:id="@+id/overlay"
+    <!-- Scanner Brackets Overlay (custom animatable view) -->
+    <com.mobisys.cordova.plugins.mlkit.barcode.scanner.ScannerBracketsView
+        android:id="@+id/scannerBrackets"
         android:layout_width="0dp"
         android:layout_height="0dp"
         app:layout_constraintBottom_toBottomOf="parent"

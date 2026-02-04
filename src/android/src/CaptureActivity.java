@@ -12,13 +12,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
-import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.Paint;
-import android.graphics.Path;
-import android.graphics.PixelFormat;
-import android.graphics.PorterDuff;
-import android.graphics.RectF;
 import android.os.Bundle;
 
 import android.util.Log;
@@ -26,8 +20,6 @@ import android.util.Log;
 import android.view.GestureDetector;
 import android.view.MotionEvent;
 import android.view.ScaleGestureDetector;
-import android.view.SurfaceHolder;
-import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageButton;
@@ -70,7 +62,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.Callback {
+public class CaptureActivity extends AppCompatActivity {
 
   public Integer BarcodeFormats;
   public double DetectorSize = .5;
@@ -82,10 +74,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
   private ExecutorService executor = Executors.newSingleThreadExecutor();
   private PreviewView mCameraView;
-  private SurfaceHolder holder;
-  private SurfaceView surfaceView;
-  private Canvas canvas;
-  private Paint paint;
+  private ScannerBracketsView _ScannerBrackets;
 
   private static final int RC_HANDLE_CAMERA_PERM = 2;
   private ImageButton _TorchButton;
@@ -123,14 +112,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     super.onCreate(savedInstanceState);
     setContentView(getResources().getIdentifier("capture_activity", "layout", getPackageName()));
 
-    // Create the bounding box
-    surfaceView = findViewById(getResources().getIdentifier("overlay", "id", getPackageName()));
-    surfaceView.setZOrderOnTop(true);
-
-    holder = surfaceView.getHolder();
-    holder.setFormat(PixelFormat.TRANSPARENT);
-    holder.addCallback(this);
-
     // read parameters from the intent used to launch the activity.
     BarcodeFormats = getIntent().getIntExtra("BarcodeFormats", 1234);
     DetectorSize = getIntent().getDoubleExtra("DetectorSize", .5);
@@ -138,6 +119,12 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
     if (DetectorSize <= 0 || DetectorSize >= 1) { // setting boundary detectorSize must be between 0 to 1.
       DetectorSize = 0.5;
+    }
+
+    // Initialize scanner brackets overlay (animatable)
+    _ScannerBrackets = findViewById(getResources().getIdentifier("scannerBrackets", "id", getPackageName()));
+    if (_ScannerBrackets != null) {
+      _ScannerBrackets.setDetectorSize((float) DetectorSize);
     }
 
     // Initialize flash overlay
@@ -288,7 +275,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
     if (grantResults.length != 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
       startCamera();
-      DrawFocusRect(Color.parseColor("#FFFFFF"));
       return;
     }
 
@@ -302,17 +288,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     builder.setTitle("Camera permission required")
         .setMessage(getResources().getIdentifier("no_camera_permission", "string", getPackageName()))
         .setPositiveButton(getResources().getIdentifier("ok", "string", getPackageName()), listener).show();
-  }
-
-  @Override
-  public void surfaceCreated(SurfaceHolder surfaceHolder) {
-
-  }
-
-  @Override
-  public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
-    DrawFocusRect(Color.parseColor("#FFFFFF"));
-    positionScannerLogo();
   }
   
   private void positionScannerLogo() {
@@ -356,11 +331,6 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   }
 
   @Override
-  public void surfaceDestroyed(SurfaceHolder surfaceHolder) {
-
-  }
-
-  @Override
   public boolean onTouchEvent(MotionEvent e) {
     boolean b = _ScaleGestureDetector.onTouchEvent(e);
     boolean c = _GestureDetector.onTouchEvent(e);
@@ -371,13 +341,19 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   @Override
   protected void onPause() {
     super.onPause();
-
+    // Pause animation when activity pauses
+    if (_ScannerBrackets != null) {
+      _ScannerBrackets.pauseBreathingAnimation();
+    }
   }
 
   @Override
   protected void onResume() {
     super.onResume();
-
+    // Resume animation when activity resumes
+    if (_ScannerBrackets != null) {
+      _ScannerBrackets.startBreathingAnimation();
+    }
   }
 
   void startCamera() {
@@ -402,6 +378,14 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
         try {
           ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
           CaptureActivity.this.bindPreview(cameraProvider);
+          
+          // Start breathing animation and position logo after camera binds
+          runOnUiThread(() -> {
+            if (_ScannerBrackets != null) {
+              _ScannerBrackets.startBreathingAnimation();
+            }
+            positionScannerLogo();
+          });
 
         } catch (ExecutionException | InterruptedException e) {
           // No errors need to be handled for this Future.
@@ -661,25 +645,10 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
    * Animate focus effect on scan frame (corner brackets)
    */
   private void animateFocusEffect() {
-    if (surfaceView == null) return;
+    if (_ScannerBrackets == null) return;
     
     runOnUiThread(() -> {
-      // Quick focus effect: scale down then spring back
-      surfaceView.animate()
-          .scaleX(0.92f)
-          .scaleY(0.92f)
-          .setDuration(150)
-          .setInterpolator(new android.view.animation.DecelerateInterpolator())
-          .withEndAction(() -> {
-            // Spring back with overshoot
-            surfaceView.animate()
-                .scaleX(1.0f)
-                .scaleY(1.0f)
-                .setDuration(400)
-                .setInterpolator(new android.view.animation.OvershootInterpolator(2.0f))
-                .start();
-          })
-          .start();
+      _ScannerBrackets.animateFocusEffect();
     });
   }
 
@@ -687,84 +656,8 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   protected void onDestroy() {
     super.onDestroy();
     unregisterCommandReceiver();
-  }
-
-  /**
-   * For drawing the rectangular box with rounded corner brackets
-   */
-  private void DrawFocusRect(int color) {
-
-    if (mCameraView != null) {
-      int height = mCameraView.getHeight();
-      int width = mCameraView.getWidth();
-
-      int left, right, top, bottom, diameter;
-
-      diameter = width;
-      if (height < width) {
-        diameter = height;
-      }
-
-      int offset = (int) ((1 - DetectorSize) * diameter);
-      diameter -= offset;
-
-      canvas = holder.lockCanvas();
-      canvas.drawColor(0, PorterDuff.Mode.CLEAR);
-      
-      // Paint for rounded corner arcs
-      paint = new Paint();
-      paint.setStyle(Paint.Style.STROKE);
-      paint.setColor(color);
-      paint.setStrokeWidth(12);  // Thicker stroke
-      paint.setAntiAlias(true);
-      paint.setStrokeCap(Paint.Cap.ROUND);
-
-      left = width / 2 - diameter / 2;
-      top = height / 2 - diameter / 2;
-      right = width / 2 + diameter / 2;
-      bottom = height / 2 + diameter / 2;
-
-      float cornerRadius = 50f;  // Radius of the rounded corner
-      float arcLength = 100f;    // Length of each arc arm
-      
-      // Top-left corner arc
-      Path topLeftPath = new Path();
-      topLeftPath.moveTo(left, top + arcLength);
-      topLeftPath.lineTo(left, top + cornerRadius);
-      topLeftPath.arcTo(new RectF(left, top, left + cornerRadius * 2, top + cornerRadius * 2), 
-                        180, 90, false);
-      topLeftPath.lineTo(left + arcLength, top);
-      canvas.drawPath(topLeftPath, paint);
-      
-      // Top-right corner arc
-      Path topRightPath = new Path();
-      topRightPath.moveTo(right - arcLength, top);
-      topRightPath.lineTo(right - cornerRadius, top);
-      topRightPath.arcTo(new RectF(right - cornerRadius * 2, top, right, top + cornerRadius * 2),
-                         -90, 90, false);
-      topRightPath.lineTo(right, top + arcLength);
-      canvas.drawPath(topRightPath, paint);
-      
-      // Bottom-left corner arc
-      Path bottomLeftPath = new Path();
-      bottomLeftPath.moveTo(left, bottom - arcLength);
-      bottomLeftPath.lineTo(left, bottom - cornerRadius);
-      bottomLeftPath.arcTo(new RectF(left, bottom - cornerRadius * 2, left + cornerRadius * 2, bottom),
-                           180, -90, false);
-      bottomLeftPath.lineTo(left + arcLength, bottom);
-      canvas.drawPath(bottomLeftPath, paint);
-      
-      // Bottom-right corner arc
-      Path bottomRightPath = new Path();
-      bottomRightPath.moveTo(right, bottom - arcLength);
-      bottomRightPath.lineTo(right, bottom - cornerRadius);
-      bottomRightPath.arcTo(new RectF(right - cornerRadius * 2, bottom - cornerRadius * 2, right, bottom),
-                            0, 90, false);
-      bottomRightPath.lineTo(right - arcLength, bottom);
-      canvas.drawPath(bottomRightPath, paint);
-
-      holder.unlockCanvasAndPost(canvas);
+    if (_ScannerBrackets != null) {
+      _ScannerBrackets.pauseBreathingAnimation();
     }
-
   }
 }
