@@ -46,6 +46,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
   private MediaPlayer _MediaPlayer;
   private Vibrator _Vibrator;
   private BroadcastReceiver _BarcodeReceiver;
+  private String _PendingStats = null; // Stats to pass when activity starts
 
   public void initialize(CordovaInterface cordova, CordovaWebView webView) {
     super.initialize(cordova, webView);
@@ -202,7 +203,10 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     _BarcodeReceiver = new BroadcastReceiver() {
       @Override
       public void onReceive(Context context, Intent intent) {
-        if (CaptureActivity.ACTION_BARCODE_SCANNED.equals(intent.getAction())) {
+        String action = intent.getAction();
+        if (action == null) return;
+
+        if (CaptureActivity.ACTION_BARCODE_SCANNED.equals(action)) {
           Integer barcodeFormat = intent.getIntExtra(CaptureActivity.BarcodeFormat, 0);
           Integer barcodeType = intent.getIntExtra(CaptureActivity.BarcodeType, 0);
           String barcodeValue = intent.getStringExtra(CaptureActivity.BarcodeValue);
@@ -233,11 +237,23 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
               _Vibrator.vibrate(duration);
             }
           }
+        } else if (CaptureActivity.ACTION_SCANNER_READY.equals(action)) {
+          // Scanner is ready - resend any pending stats
+          Log.d(TAG, "Received SCANNER_READY, pending stats: " + _PendingStats);
+          if (_PendingStats != null && !_PendingStats.isEmpty()) {
+            Intent statsIntent = new Intent(CaptureActivity.ACTION_UPDATE_UI);
+            statsIntent.setPackage(context.getPackageName());
+            statsIntent.putExtra("stats", _PendingStats);
+            Log.d(TAG, "Resending pending stats: " + _PendingStats);
+            context.sendBroadcast(statsIntent);
+          }
         }
       }
     };
 
-    IntentFilter filter = new IntentFilter(CaptureActivity.ACTION_BARCODE_SCANNED);
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(CaptureActivity.ACTION_BARCODE_SCANNED);
+    filter.addAction(CaptureActivity.ACTION_SCANNER_READY);
     Context context = cordova.getContext();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
       context.registerReceiver(_BarcodeReceiver, filter, Context.RECEIVER_EXPORTED);
@@ -284,12 +300,16 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     cordova.getContext().sendBroadcast(intent);
     unregisterBarcodeReceiver();
     _ContinuousMode = false;
+    _PendingStats = null; // Clear pending stats when scanner closes
   }
 
   private void updateStats(JSONArray args) throws JSONException {
     JSONObject config = args.getJSONObject(0);
     String stats = config.optString("stats", "");
     Log.d(TAG, "updateStats called with: " + stats);
+
+    // Store stats so they can be resent when scanner is ready
+    _PendingStats = stats;
 
     Intent intent = new Intent(CaptureActivity.ACTION_UPDATE_UI);
     intent.setPackage(cordova.getContext().getPackageName());

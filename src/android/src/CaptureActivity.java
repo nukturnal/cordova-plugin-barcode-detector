@@ -104,6 +104,7 @@ public class CaptureActivity extends AppCompatActivity {
   public static final String ACTION_CLOSE_SCANNER = "com.mobisys.barcode.CLOSE_SCANNER";
   public static final String ACTION_UPDATE_UI = "com.mobisys.barcode.UPDATE_UI";
   public static final String ACTION_BARCODE_SCANNED = "com.mobisys.barcode.BARCODE_SCANNED";
+  public static final String ACTION_SCANNER_READY = "com.mobisys.barcode.SCANNER_READY";
 
   private BroadcastReceiver _CommandReceiver;
 
@@ -560,6 +561,12 @@ public class CaptureActivity extends AppCompatActivity {
       registerReceiver(_CommandReceiver, filter);
     }
     Log.d(TAG, "CommandReceiver registered for actions: FLASH_OVERLAY, CLOSE_SCANNER, UPDATE_UI");
+
+    // Notify plugin that scanner is ready to receive commands
+    Intent readyIntent = new Intent(ACTION_SCANNER_READY);
+    readyIntent.setPackage(getPackageName());
+    sendBroadcast(readyIntent);
+    Log.d(TAG, "Sent SCANNER_READY broadcast");
   }
 
   /**
