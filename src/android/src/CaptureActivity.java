@@ -15,6 +15,7 @@ import android.graphics.Bitmap;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
 import android.graphics.PorterDuff;
 import android.graphics.RectF;
@@ -688,7 +689,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   }
 
   /**
-   * For drawing the rectangular box
+   * For drawing the rectangular box with rounded corner brackets
    */
   private void DrawFocusRect(int color) {
 
@@ -708,39 +709,58 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
 
       canvas = holder.lockCanvas();
       canvas.drawColor(0, PorterDuff.Mode.CLEAR);
-      // border's properties
+      
+      // Paint for rounded corner arcs
       paint = new Paint();
       paint.setStyle(Paint.Style.STROKE);
       paint.setColor(color);
-      paint.setStrokeWidth(5);
+      paint.setStrokeWidth(8);
+      paint.setAntiAlias(true);
+      paint.setStrokeCap(Paint.Cap.ROUND);
 
       left = width / 2 - diameter / 2;
       top = height / 2 - diameter / 2;
       right = width / 2 + diameter / 2;
       bottom = height / 2 + diameter / 2;
 
-      // Changing the value of x in diameter/x will change the size of the box ;
-      // inversely proportionate to x
+      float cornerRadius = 50f;  // Radius of the rounded corner
+      float arcLength = 100f;    // Length of each arc arm
       
-      // Draw corner brackets instead of full square
-      float cornerLength = diameter * 0.15f;  // 15% of diameter
-      float cornerWidth = 8f;  // Thickness of corner lines
+      // Top-left corner arc
+      Path topLeftPath = new Path();
+      topLeftPath.moveTo(left, top + arcLength);
+      topLeftPath.lineTo(left, top + cornerRadius);
+      topLeftPath.arcTo(new RectF(left, top, left + cornerRadius * 2, top + cornerRadius * 2), 
+                        180, 90, false);
+      topLeftPath.lineTo(left + arcLength, top);
+      canvas.drawPath(topLeftPath, paint);
       
-      // Top-left corner
-      canvas.drawRect(left, top, left + cornerLength, top + cornerWidth, paint);  // Horizontal
-      canvas.drawRect(left, top, left + cornerWidth, top + cornerLength, paint);  // Vertical
+      // Top-right corner arc
+      Path topRightPath = new Path();
+      topRightPath.moveTo(right - arcLength, top);
+      topRightPath.lineTo(right - cornerRadius, top);
+      topRightPath.arcTo(new RectF(right - cornerRadius * 2, top, right, top + cornerRadius * 2),
+                         -90, 90, false);
+      topRightPath.lineTo(right, top + arcLength);
+      canvas.drawPath(topRightPath, paint);
       
-      // Top-right corner
-      canvas.drawRect(right - cornerLength, top, right, top + cornerWidth, paint);  // Horizontal
-      canvas.drawRect(right - cornerWidth, top, right, top + cornerLength, paint);  // Vertical
+      // Bottom-left corner arc
+      Path bottomLeftPath = new Path();
+      bottomLeftPath.moveTo(left, bottom - arcLength);
+      bottomLeftPath.lineTo(left, bottom - cornerRadius);
+      bottomLeftPath.arcTo(new RectF(left, bottom - cornerRadius * 2, left + cornerRadius * 2, bottom),
+                           180, -90, false);
+      bottomLeftPath.lineTo(left + arcLength, bottom);
+      canvas.drawPath(bottomLeftPath, paint);
       
-      // Bottom-left corner
-      canvas.drawRect(left, bottom - cornerWidth, left + cornerLength, bottom, paint);  // Horizontal
-      canvas.drawRect(left, bottom - cornerLength, left + cornerWidth, bottom, paint);  // Vertical
-      
-      // Bottom-right corner
-      canvas.drawRect(right - cornerLength, bottom - cornerWidth, right, bottom, paint);  // Horizontal
-      canvas.drawRect(right - cornerWidth, bottom - cornerLength, right, bottom, paint);  // Vertical
+      // Bottom-right corner arc
+      Path bottomRightPath = new Path();
+      bottomRightPath.moveTo(right, bottom - arcLength);
+      bottomRightPath.lineTo(right, bottom - cornerRadius);
+      bottomRightPath.arcTo(new RectF(right - cornerRadius * 2, bottom - cornerRadius * 2, right, bottom),
+                            0, 90, false);
+      bottomRightPath.lineTo(right - arcLength, bottom);
+      canvas.drawPath(bottomRightPath, paint);
 
       holder.unlockCanvasAndPost(canvas);
     }

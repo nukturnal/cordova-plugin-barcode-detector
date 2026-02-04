@@ -43,6 +43,7 @@
 @property(nonatomic, strong) UIImageView *logoImageView;  // Logo below scan frame
 @property(nonatomic, copy) NSString *lastScannedValue;
 @property(nonatomic, assign) NSTimeInterval lastScanTime;
+@property(nonatomic, assign) BOOL isAnimatingFocus;  // Track if focus animation is running
 
 @end
 
@@ -155,12 +156,16 @@ static const NSTimeInterval kScanDebounceSeconds = 1.5;
         
         // Set up logo (properties are now set by CDViOSScanner)
         [self setupLogo];
+        
+        // Start focus breathing animation
+        [self startFocusAnimation];
     }
 }
 
 - (void)viewDidDisappear:(BOOL)animated {
     [super viewDidDisappear:animated];
     [self.session stopRunning];
+    [self pauseFocusAnimation];
 }
 
 #pragma mark - AVCaptureVideoDataOutputSampleBufferDelegate
@@ -311,11 +316,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     CGFloat frameWidth = screenWidth*_detectorSize;
     CGFloat frameHeight = frameWidth;
 
-    // Create corner brackets overlay instead of full square
-    CGFloat cornerLength = 40.0;  // Length of each corner line
-    CGFloat cornerWidth = 4.0;    // Thickness of corner lines
-    UIColor *cornerColor = [UIColor whiteColor];
-    
+    // Create scan frame container
     UIView *scanFrameView = [[UIView alloc] init];
     scanFrameView.frame = CGRectMake(screenWidth/2 - frameWidth/2, screenHeight/2 - frameHeight/2, frameWidth, frameHeight);
     scanFrameView.backgroundColor = [UIColor clearColor];
@@ -324,41 +325,67 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     UITapGestureRecognizer* tapScanner = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(focusAtPoint:)];
     [scanFrameView addGestureRecognizer:tapScanner];
     
-    // Top-left corner (horizontal + vertical)
-    UIView *topLeftH = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cornerLength, cornerWidth)];
-    topLeftH.backgroundColor = cornerColor;
-    [scanFrameView addSubview:topLeftH];
+    // Create rounded corner brackets using CAShapeLayer
+    CGFloat cornerRadius = 25.0;    // Radius of the rounded corner
+    CGFloat arcLength = 50.0;       // Length of each arc arm
+    CGFloat lineWidth = 4.0;        // Thickness of the lines
+    UIColor *cornerColor = [UIColor whiteColor];
     
-    UIView *topLeftV = [[UIView alloc] initWithFrame:CGRectMake(0, 0, cornerWidth, cornerLength)];
-    topLeftV.backgroundColor = cornerColor;
-    [scanFrameView addSubview:topLeftV];
+    // Top-left corner arc
+    CAShapeLayer *topLeftArc = [CAShapeLayer layer];
+    UIBezierPath *topLeftPath = [UIBezierPath bezierPath];
+    [topLeftPath moveToPoint:CGPointMake(0, arcLength)];
+    [topLeftPath addLineToPoint:CGPointMake(0, cornerRadius)];
+    [topLeftPath addArcWithCenter:CGPointMake(cornerRadius, cornerRadius) radius:cornerRadius startAngle:M_PI endAngle:-M_PI_2 clockwise:YES];
+    [topLeftPath addLineToPoint:CGPointMake(arcLength, 0)];
+    topLeftArc.path = topLeftPath.CGPath;
+    topLeftArc.strokeColor = cornerColor.CGColor;
+    topLeftArc.fillColor = [UIColor clearColor].CGColor;
+    topLeftArc.lineWidth = lineWidth;
+    topLeftArc.lineCap = kCALineCapRound;
+    [scanFrameView.layer addSublayer:topLeftArc];
     
-    // Top-right corner (horizontal + vertical)
-    UIView *topRightH = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerLength, 0, cornerLength, cornerWidth)];
-    topRightH.backgroundColor = cornerColor;
-    [scanFrameView addSubview:topRightH];
+    // Top-right corner arc
+    CAShapeLayer *topRightArc = [CAShapeLayer layer];
+    UIBezierPath *topRightPath = [UIBezierPath bezierPath];
+    [topRightPath moveToPoint:CGPointMake(frameWidth - arcLength, 0)];
+    [topRightPath addLineToPoint:CGPointMake(frameWidth - cornerRadius, 0)];
+    [topRightPath addArcWithCenter:CGPointMake(frameWidth - cornerRadius, cornerRadius) radius:cornerRadius startAngle:-M_PI_2 endAngle:0 clockwise:YES];
+    [topRightPath addLineToPoint:CGPointMake(frameWidth, arcLength)];
+    topRightArc.path = topRightPath.CGPath;
+    topRightArc.strokeColor = cornerColor.CGColor;
+    topRightArc.fillColor = [UIColor clearColor].CGColor;
+    topRightArc.lineWidth = lineWidth;
+    topRightArc.lineCap = kCALineCapRound;
+    [scanFrameView.layer addSublayer:topRightArc];
     
-    UIView *topRightV = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerWidth, 0, cornerWidth, cornerLength)];
-    topRightV.backgroundColor = cornerColor;
-    [scanFrameView addSubview:topRightV];
+    // Bottom-left corner arc
+    CAShapeLayer *bottomLeftArc = [CAShapeLayer layer];
+    UIBezierPath *bottomLeftPath = [UIBezierPath bezierPath];
+    [bottomLeftPath moveToPoint:CGPointMake(0, frameHeight - arcLength)];
+    [bottomLeftPath addLineToPoint:CGPointMake(0, frameHeight - cornerRadius)];
+    [bottomLeftPath addArcWithCenter:CGPointMake(cornerRadius, frameHeight - cornerRadius) radius:cornerRadius startAngle:M_PI endAngle:M_PI_2 clockwise:NO];
+    [bottomLeftPath addLineToPoint:CGPointMake(arcLength, frameHeight)];
+    bottomLeftArc.path = bottomLeftPath.CGPath;
+    bottomLeftArc.strokeColor = cornerColor.CGColor;
+    bottomLeftArc.fillColor = [UIColor clearColor].CGColor;
+    bottomLeftArc.lineWidth = lineWidth;
+    bottomLeftArc.lineCap = kCALineCapRound;
+    [scanFrameView.layer addSublayer:bottomLeftArc];
     
-    // Bottom-left corner (horizontal + vertical)
-    UIView *bottomLeftH = [[UIView alloc] initWithFrame:CGRectMake(0, frameHeight - cornerWidth, cornerLength, cornerWidth)];
-    bottomLeftH.backgroundColor = cornerColor;
-    [scanFrameView addSubview:bottomLeftH];
-    
-    UIView *bottomLeftV = [[UIView alloc] initWithFrame:CGRectMake(0, frameHeight - cornerLength, cornerWidth, cornerLength)];
-    bottomLeftV.backgroundColor = cornerColor;
-    [scanFrameView addSubview:bottomLeftV];
-    
-    // Bottom-right corner (horizontal + vertical)
-    UIView *bottomRightH = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerLength, frameHeight - cornerWidth, cornerLength, cornerWidth)];
-    bottomRightH.backgroundColor = cornerColor;
-    [scanFrameView addSubview:bottomRightH];
-    
-    UIView *bottomRightV = [[UIView alloc] initWithFrame:CGRectMake(frameWidth - cornerWidth, frameHeight - cornerLength, cornerWidth, cornerLength)];
-    bottomRightV.backgroundColor = cornerColor;
-    [scanFrameView addSubview:bottomRightV];
+    // Bottom-right corner arc
+    CAShapeLayer *bottomRightArc = [CAShapeLayer layer];
+    UIBezierPath *bottomRightPath = [UIBezierPath bezierPath];
+    [bottomRightPath moveToPoint:CGPointMake(frameWidth, frameHeight - arcLength)];
+    [bottomRightPath addLineToPoint:CGPointMake(frameWidth, frameHeight - cornerRadius)];
+    [bottomRightPath addArcWithCenter:CGPointMake(frameWidth - cornerRadius, frameHeight - cornerRadius) radius:cornerRadius startAngle:0 endAngle:M_PI_2 clockwise:YES];
+    [bottomRightPath addLineToPoint:CGPointMake(frameWidth - arcLength, frameHeight)];
+    bottomRightArc.path = bottomRightPath.CGPath;
+    bottomRightArc.strokeColor = cornerColor.CGColor;
+    bottomRightArc.fillColor = [UIColor clearColor].CGColor;
+    bottomRightArc.lineWidth = lineWidth;
+    bottomRightArc.lineCap = kCALineCapRound;
+    [scanFrameView.layer addSublayer:bottomRightArc];
 
     CGFloat buttonSize = 45.0;
 
@@ -536,6 +563,65 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
           logoWidth, logoHeight, logoX, logoY, self.showLogo);
 }
 
+#pragma mark - Focus Animation
+
+- (void)startFocusAnimation {
+    if (self.isAnimatingFocus || !self.scanFrameView) {
+        return;
+    }
+    
+    self.isAnimatingFocus = YES;
+    [self animateFocusPulse];
+}
+
+- (void)animateFocusPulse {
+    if (!self.isAnimatingFocus) {
+        return;
+    }
+    
+    // Breathing animation: scale slightly in and out
+    [UIView animateWithDuration:0.8
+                          delay:0
+                        options:UIViewAnimationOptionCurveEaseInOut
+                     animations:^{
+                         self.scanFrameView.transform = CGAffineTransformMakeScale(0.96, 0.96);
+                     }
+                     completion:^(BOOL finished) {
+                         if (!self.isAnimatingFocus) return;
+                         
+                         [UIView animateWithDuration:0.8
+                                               delay:0
+                                             options:UIViewAnimationOptionCurveEaseInOut
+                                          animations:^{
+                                              self.scanFrameView.transform = CGAffineTransformIdentity;
+                                          }
+                                          completion:^(BOOL finished) {
+                                              if (self.isAnimatingFocus) {
+                                                  [self animateFocusPulse];
+                                              }
+                                          }];
+                     }];
+}
+
+- (void)pauseFocusAnimation {
+    self.isAnimatingFocus = NO;
+    
+    // Snap back to normal scale
+    [UIView animateWithDuration:0.15
+                          delay:0
+                        options:UIViewAnimationOptionCurveEaseOut
+                     animations:^{
+                         self.scanFrameView.transform = CGAffineTransformIdentity;
+                     }
+                     completion:nil];
+}
+
+- (void)resumeFocusAnimationAfterDelay:(NSTimeInterval)delay {
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        [self startFocusAnimation];
+    });
+}
+
 #pragma mark - Helper Functions
 
 - (void)focusAtPoint:(id) sender {
@@ -686,6 +772,9 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
             return;
         }
         
+        // Pause the breathing animation
+        [self pauseFocusAnimation];
+        
         // Quick focus effect: scale down then spring back
         [UIView animateWithDuration:0.15
                               delay:0.0
@@ -704,7 +793,10 @@ static inline double radians (double degrees) {return degrees * M_PI/180;}
                                 options:UIViewAnimationOptionCurveEaseInOut
                              animations:^{
                 self.scanFrameView.transform = CGAffineTransformIdentity;
-            } completion:nil];
+            } completion:^(BOOL finished) {
+                // Resume breathing animation after a brief hold
+                [self resumeFocusAnimationAfterDelay:1.0];
+            }];
         }];
     });
 }
