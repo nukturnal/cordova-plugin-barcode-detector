@@ -674,4 +674,11 @@ public class CaptureActivity extends AppCompatActivity {
       _ScannerBrackets.pauseBreathingAnimation();
     }
   }
+
+  @SuppressWarnings("deprecation")
+  @Override
+  public void onBackPressed() {
+    // Handle back button press - close scanner with USER_CANCELLED result
+    closeScanner();
+  }
 }
