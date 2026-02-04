@@ -145,8 +145,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Scanner Logo (below scan frame, right-aligned) -->
-    <!-- Position is set programmatically based on scan frame location -->
+    <!-- Scanner Logo (positioned programmatically below scan frame) -->
+    <!-- Uses FrameLayout positioning approach for reliable placement -->
     <ImageView
         android:id="@+id/scannerLogo"
         android:layout_width="wrap_content"
@@ -156,9 +156,7 @@
         android:scaleType="fitEnd"
         android:src="@drawable/scanner_logo"
         android:visibility="gone"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        android:layout_marginEnd="20dp"
-        android:layout_marginTop="100dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

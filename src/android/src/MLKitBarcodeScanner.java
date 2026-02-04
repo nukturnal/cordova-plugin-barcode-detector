@@ -260,6 +260,7 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     } else {
       context.registerReceiver(_BarcodeReceiver, filter);
     }
+    Log.d(TAG, "BarcodeReceiver registered for BARCODE_SCANNED and SCANNER_READY");
   }
 
   private void unregisterBarcodeReceiver() {

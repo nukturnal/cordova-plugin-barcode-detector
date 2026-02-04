@@ -331,6 +331,7 @@ public class CaptureActivity extends AppCompatActivity {
   
   private void positionScannerLogo(int viewWidth, int viewHeight) {
     if (_ScannerLogo == null || !_ShowLogo) {
+      Log.d(TAG, "Scanner logo skipped: null=" + (_ScannerLogo == null) + " showLogo=" + _ShowLogo);
       return;
     }
     
@@ -346,27 +347,25 @@ public class CaptureActivity extends AppCompatActivity {
     float logoPadding = 16 * getResources().getDisplayMetrics().density; // 16dp
     float logoHeight = _LogoHeight * getResources().getDisplayMetrics().density;
     
-    // Use post to ensure drawable is loaded
-    _ScannerLogo.post(() -> {
-      if (_ScannerLogo.getDrawable() != null) {
-        float aspectRatio = (float) _ScannerLogo.getDrawable().getIntrinsicWidth() / 
-                           (float) _ScannerLogo.getDrawable().getIntrinsicHeight();
-        float logoWidth = logoHeight * aspectRatio;
-        
-        // Position: right-aligned to right bracket edge
-        float logoX = right - logoWidth;
-        float logoY = bottom + logoPadding;
-        
-        _ScannerLogo.setX(logoX);
-        _ScannerLogo.setY(logoY);
-        _ScannerLogo.setVisibility(View.VISIBLE);
-        
-        Log.d(TAG, "Scanner logo positioned: x=" + logoX + ", y=" + logoY + 
-              ", w=" + logoWidth + ", h=" + logoHeight);
-      } else {
-        Log.w(TAG, "Scanner logo drawable is null");
-      }
-    });
+    // Calculate logo width based on aspect ratio
+    if (_ScannerLogo.getDrawable() != null) {
+      float aspectRatio = (float) _ScannerLogo.getDrawable().getIntrinsicWidth() / 
+                         (float) _ScannerLogo.getDrawable().getIntrinsicHeight();
+      float logoWidth = logoHeight * aspectRatio;
+      
+      // Use translationX/Y for positioning (works with ConstraintLayout)
+      float logoX = right - logoWidth;
+      float logoY = bottom + logoPadding;
+      
+      _ScannerLogo.setTranslationX(logoX);
+      _ScannerLogo.setTranslationY(logoY);
+      _ScannerLogo.setVisibility(View.VISIBLE);
+      
+      Log.d(TAG, "Scanner logo visible: translationX=" + logoX + ", translationY=" + logoY + 
+            ", w=" + logoWidth + ", h=" + logoHeight);
+    } else {
+      Log.w(TAG, "Scanner logo drawable is null");
+    }
   }
 
   @Override
