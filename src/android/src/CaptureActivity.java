@@ -714,7 +714,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
       paint = new Paint();
       paint.setStyle(Paint.Style.STROKE);
       paint.setColor(color);
-      paint.setStrokeWidth(8);
+      paint.setStrokeWidth(12);  // Thicker stroke
       paint.setAntiAlias(true);
       paint.setStrokeCap(Paint.Cap.ROUND);
 

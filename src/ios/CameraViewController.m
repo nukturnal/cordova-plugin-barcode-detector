@@ -328,7 +328,7 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
     // Create rounded corner brackets using CAShapeLayer
     CGFloat cornerRadius = 25.0;    // Radius of the rounded corner
     CGFloat arcLength = 50.0;       // Length of each arc arm
-    CGFloat lineWidth = 4.0;        // Thickness of the lines
+    CGFloat lineWidth = 6.0;        // Thickness of the lines (increased from 4)
     UIColor *cornerColor = [UIColor whiteColor];
     
     // Top-left corner arc
@@ -579,17 +579,17 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         return;
     }
     
-    // Breathing animation: scale slightly in and out
-    [UIView animateWithDuration:0.8
+    // Breathing animation: scale in and out (more pronounced)
+    [UIView animateWithDuration:0.9
                           delay:0
                         options:UIViewAnimationOptionCurveEaseInOut
                      animations:^{
-                         self.scanFrameView.transform = CGAffineTransformMakeScale(0.96, 0.96);
+                         self.scanFrameView.transform = CGAffineTransformMakeScale(0.88, 0.88);
                      }
                      completion:^(BOOL finished) {
                          if (!self.isAnimatingFocus) return;
                          
-                         [UIView animateWithDuration:0.8
+                         [UIView animateWithDuration:0.9
                                                delay:0
                                              options:UIViewAnimationOptionCurveEaseInOut
                                           animations:^{
