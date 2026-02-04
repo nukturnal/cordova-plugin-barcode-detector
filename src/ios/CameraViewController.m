@@ -40,6 +40,7 @@
 @property(nonatomic, strong) UILabel *subtitleLabel;
 @property(nonatomic, strong) UILabel *statsLabel;
 @property(nonatomic, strong) UIView *scanFrameView;  // Reference to scan frame for animations
+@property(nonatomic, strong) UIImageView *logoImageView;  // Logo below scan frame
 @property(nonatomic, copy) NSString *lastScannedValue;
 @property(nonatomic, assign) NSTimeInterval lastScanTime;
 
@@ -484,6 +485,36 @@ didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
         self.statsLabel.textAlignment = NSTextAlignmentRight;
         self.statsLabel.numberOfLines = 1;
         [self.view addSubview:self.statsLabel];
+    }
+    
+    // Set up logo image below scan frame (for continuous mode)
+    if (self.continuousMode && self.showLogo) {
+        UIImage *logoImage = [UIImage imageNamed:@"scanner_logo"];
+        if (logoImage) {
+            // Calculate logo size maintaining aspect ratio based on specified height
+            CGFloat logoHeight = self.logoHeight > 0 ? self.logoHeight : 40.0;
+            CGFloat aspectRatio = logoImage.size.width / logoImage.size.height;
+            CGFloat logoWidth = logoHeight * aspectRatio;
+            
+            // Position: below scan frame, right-aligned to bracket edge
+            // scanFrameView.frame gives us the scan area position
+            CGFloat scanFrameBottom = screenHeight/2 + frameHeight/2;
+            CGFloat scanFrameRight = screenWidth/2 + frameWidth/2;
+            CGFloat logoPadding = 16.0; // Padding below brackets
+            
+            CGFloat logoX = scanFrameRight - logoWidth; // Right-align to bracket edge
+            CGFloat logoY = scanFrameBottom + logoPadding;
+            
+            self.logoImageView = [[UIImageView alloc] initWithImage:logoImage];
+            self.logoImageView.frame = CGRectMake(logoX, logoY, logoWidth, logoHeight);
+            self.logoImageView.contentMode = UIViewContentModeScaleAspectFit;
+            self.logoImageView.userInteractionEnabled = NO;
+            [self.view addSubview:self.logoImageView];
+            
+            NSLog(@"Logo added: size=%.0fx%.0f, position=(%.0f, %.0f)", logoWidth, logoHeight, logoX, logoY);
+        } else {
+            NSLog(@"Warning: scanner_logo image not found in bundle");
+        }
     }
 
 }

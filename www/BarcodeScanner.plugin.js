@@ -129,6 +129,8 @@ class MLKitBarcodeScanner {
             barcodeFormats: this.getBarcodeFormatFlags(barcodeFormats),
             title: userOptions?.title || '',
             subtitle: userOptions?.subtitle || '',
+            showLogo: userOptions?.showLogo !== false, // Default true, show bundled logo
+            logoHeight: userOptions?.logoHeight || 40,  // Default 40dp height
         });
 
         cordova.exec((data) => {

@@ -100,6 +100,9 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   private TextView _SubtitleText;
   private TextView _StatsText;
   private ImageView _LogoView;
+  private ImageView _ScannerLogo;
+  private boolean _ShowLogo = true;
+  private int _LogoHeight = 40;
   private String _LastScannedValue = "";
   private long _LastScanTime = 0;
   private static final long SCAN_DEBOUNCE_MS = 1500; // Prevent duplicate scans
@@ -149,6 +152,7 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
     _SubtitleText = findViewById(getResources().getIdentifier("subtitleText", "id", getPackageName()));
     _StatsText = findViewById(getResources().getIdentifier("statsText", "id", getPackageName()));
     _LogoView = findViewById(getResources().getIdentifier("logoView", "id", getPackageName()));
+    _ScannerLogo = findViewById(getResources().getIdentifier("scannerLogo", "id", getPackageName()));
 
     // Set initial text from intent if provided
     String title = getIntent().getStringExtra("Title");
@@ -161,8 +165,25 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
       _SubtitleText.setText(subtitle);
       _SubtitleText.setVisibility(View.VISIBLE);
     }
+    
+    // Set up scanner logo (below scan frame)
+    _ShowLogo = getIntent().getBooleanExtra("ShowLogo", true);
+    _LogoHeight = getIntent().getIntExtra("LogoHeight", 40);
+    
+    if (_ContinuousMode && _ShowLogo && _ScannerLogo != null) {
+      // Position will be set in surfaceChanged when we know the scan frame dimensions
+      _ScannerLogo.setVisibility(View.VISIBLE);
+      
+      // Set height while maintaining aspect ratio
+      ViewGroup.LayoutParams params = _ScannerLogo.getLayoutParams();
+      params.height = (int) (getResources().getDisplayMetrics().density * _LogoHeight);
+      _ScannerLogo.setLayoutParams(params);
+      
+      Log.d(TAG, "Scanner logo enabled: height=" + _LogoHeight + "dp");
+    }
 
     // Register broadcast receiver for commands from plugin
+    registerCommandReceiver();
     registerCommandReceiver();
 
     int rc = ActivityCompat.checkSelfPermission(this, Manifest.permission.CAMERA);
@@ -290,6 +311,47 @@ public class CaptureActivity extends AppCompatActivity implements SurfaceHolder.
   @Override
   public void surfaceChanged(SurfaceHolder surfaceHolder, int i, int i1, int i2) {
     DrawFocusRect(Color.parseColor("#FFFFFF"));
+    positionScannerLogo();
+  }
+  
+  private void positionScannerLogo() {
+    if (_ScannerLogo == null || !_ShowLogo || !_ContinuousMode || mCameraView == null) {
+      return;
+    }
+    
+    int height = mCameraView.getHeight();
+    int width = mCameraView.getWidth();
+    
+    int diameter = Math.min(width, height);
+    int offset = (int) ((1 - DetectorSize) * diameter);
+    diameter -= offset;
+    
+    // Calculate scan frame bounds (same logic as DrawFocusRect)
+    int right = width / 2 + diameter / 2;
+    int bottom = height / 2 + diameter / 2;
+    
+    // Position logo below scan frame, right-aligned to bracket edge
+    float logoPadding = 16 * getResources().getDisplayMetrics().density; // 16dp
+    float logoHeight = _LogoHeight * getResources().getDisplayMetrics().density;
+    
+    // Calculate width based on aspect ratio (adjust view bounds does this)
+    _ScannerLogo.post(() -> {
+      if (_ScannerLogo.getDrawable() != null) {
+        float aspectRatio = (float) _ScannerLogo.getDrawable().getIntrinsicWidth() / 
+                           (float) _ScannerLogo.getDrawable().getIntrinsicHeight();
+        float logoWidth = logoHeight * aspectRatio;
+        
+        // Position: right-aligned to right bracket edge
+        float logoX = right - logoWidth;
+        float logoY = bottom + logoPadding;
+        
+        _ScannerLogo.setX(logoX);
+        _ScannerLogo.setY(logoY);
+        
+        Log.d(TAG, "Scanner logo positioned: x=" + logoX + ", y=" + logoY + 
+              ", w=" + logoWidth + ", h=" + logoHeight);
+      }
+    });
   }
 
   @Override

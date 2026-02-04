@@ -51,6 +51,7 @@
     <header-file src="src/ios/CameraViewController.h" />
     <source-file src="src/ios/CameraViewController.m" />
     <resource-file src="src/ios/Sounds/beep.caf" />
+    <resource-file src="src/ios/scanner_logo.png" />
 
     <!-- English localization only -->
     <resource-file src="src/ios/en.lproj/Localizable.strings"
@@ -101,6 +102,7 @@
     <resource-file src="src/android/res/drawable/ic_close.xml" target="res/drawable/ic_close.xml" />
     <resource-file src="src/android/res/drawable/torch_active.xml" target="res/drawable/torch_active.xml" />
     <resource-file src="src/android/res/drawable/torch_inactive.xml" target="res/drawable/torch_inactive.xml" />
+    <resource-file src="src/android/res/drawable/scanner_logo.png" target="res/drawable/scanner_logo.png" />
 
     <!-- Updated Android dependencies -->
     <framework src="com.google.android.material:material:1.9.0" />

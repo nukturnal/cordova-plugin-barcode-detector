@@ -35,6 +35,8 @@
 @property(nonatomic,assign) BOOL continuousMode;
 @property(nonatomic,copy) NSString *titleText;
 @property(nonatomic,copy) NSString *subtitleText;
+@property(nonatomic,assign) BOOL showLogo;
+@property(nonatomic,assign) CGFloat logoHeight;
 
 - (void)showFlashOverlayWithColor:(UIColor *)color duration:(NSTimeInterval)duration opacity:(CGFloat)opacity;
 - (void)updateStatsText:(NSString *)stats;

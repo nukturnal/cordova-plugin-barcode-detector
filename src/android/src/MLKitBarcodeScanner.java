@@ -179,6 +179,8 @@ public class MLKitBarcodeScanner extends CordovaPlugin {
     intent.putExtra("ContinuousMode", true);
     intent.putExtra("Title", config.optString("title", ""));
     intent.putExtra("Subtitle", config.optString("subtitle", ""));
+    intent.putExtra("ShowLogo", config.optBoolean("showLogo", true));
+    intent.putExtra("LogoHeight", config.optInt("logoHeight", 40));
 
     _BeepOnSuccess = config.optBoolean("beepOnSuccess", false);
     _VibrateOnSuccess = config.optBoolean("vibrateOnSuccess", false);
